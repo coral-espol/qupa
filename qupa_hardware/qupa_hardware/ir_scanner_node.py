@@ -3,22 +3,19 @@
 """
 ir_scanner_node — ROS2 Jazzy node for GP2Y0E03 IR proximity sensors.
 
-Publishes to 'scan' as sensor_msgs/LaserScan.
-Sensor layout (ROS REP-103: 0=East, CCW positive):
+Publishes one sensor_msgs/LaserScan per sensor on individual topics,
+each stamped with the sensor's TF frame from qupa_description.
 
-  Idx | Channel | Direction | Angle
-  ----+---------+-----------+--------
-   0  |   ch1   |     S     | -π/2
-   1  |   ch2   |     W     |  π
-   2  |   ch3   |    NW     |  3π/4
-   3  |   ch5   |     N     |  π/2
-   4  |   ch6   |    NE     |  π/4
-   5  |   ch7   |     E     |  0
-
-Saturated or error readings are published as range_max (no obstacle detected).
+  Channel | Frame   | Direction
+  --------+---------+----------
+    ch1   | ir_270  |   S
+    ch2   | ir_180  |   W
+    ch3   | ir_135  |   NW
+    ch4   | ir_90   |   N
+    ch5   | ir_45   |   NE
+    ch6   | ir_0    |   E
 """
 
-import math
 import time
 import statistics
 
@@ -38,18 +35,17 @@ REG_SHIFT  = 0x35
 REG_DIST_H = 0x5E
 REG_DIST_L = 0x5F
 
-# Channels and their angles in radians (ROS REP-103 convention)
-# Each entry: (channel_number, angle_rad)
+# Mapping: (channel, tf_frame, topic_suffix)
 SENSOR_MAP = [
-    (1, -math.pi / 2),       # S   → -90°
-    (2,  math.pi),            # W   → 180°
-    (3,  3 * math.pi / 4),   # NW  → 135°
-    (4,  math.pi / 2),       # N   →  90°
-    (5,  math.pi / 4),       # NE  →  45°
-    (6,  0.0),                # E   →   0°
+    (1, 'ir_270', 'ir_s'),
+    (2, 'ir_180', 'ir_w'),
+    (3, 'ir_135', 'ir_nw'),
+    (4, 'ir_90',  'ir_n'),
+    (5, 'ir_45',  'ir_ne'),
+    (6, 'ir_0',   'ir_e'),
 ]
 
-KEEP_CHANNELS = [ch for ch, _ in SENSOR_MAP]
+KEEP_CHANNELS = [ch for ch, _, _ in SENSOR_MAP]
 
 
 # ── Calibration helper ───────────────────────────────────────────────────────
@@ -199,8 +195,12 @@ class IRScannerNode(Node):
             for ch in KEEP_CHANNELS
         }
 
-        # ── Publisher ──
-        self._pub = self.create_publisher(LaserScan, 'scan', 10)
+        # ── Publishers — one per sensor ──
+        self._publishers = {
+            ch: self.create_publisher(LaserScan, topic, 10)
+            for ch, _, topic in SENSOR_MAP
+        }
+        self._frames = {ch: frame for ch, frame, _ in SENSOR_MAP}
 
         # ── Scanner ──
         if not SMBUS_AVAILABLE:
@@ -221,51 +221,34 @@ class IRScannerNode(Node):
             self.get_logger().error(f'Failed to open I2C bus: {e}')
             return
 
-        # Full 360° scan at 1° resolution — slots without sensors stay at inf
-        self._num_readings    = 360
-        self._angle_min       = -math.pi
-        self._angle_max       =  math.pi
-        self._angle_increment =  2 * math.pi / self._num_readings
-
-        # Pre-compute each sensor's index in the ranges array
-        self._sensor_indices = []
-        for ch, angle in SENSOR_MAP:
-            idx = round((angle - self._angle_min) / self._angle_increment) % self._num_readings
-            self._sensor_indices.append((ch, idx))
-
         self._timer = self.create_timer(self._loop_dt, self._scan_callback)
         self.get_logger().info(
-            f'IR Scanner ready — publishing LaserScan on scan '
+            f'IR Scanner ready — publishing 6 LaserScan topics '
             f'at {1.0/self._loop_dt:.1f} Hz'
         )
 
     # ── Timer callback ────────────────────────────────────────────────────────
 
     def _scan_callback(self):
-        ranges = [float('inf')] * self._num_readings
-
-        for ch, idx in self._sensor_indices:
-            dist_cm = self._scanner.get_distance(ch)
-
-            if dist_cm > 0:
-                ranges[idx] = dist_cm / 100.0   # cm → m, only valid positive readings
-            # <= 0 (saturated / error) → leave as inf
-
         now = self.get_clock().now().to_msg()
 
-        msg = LaserScan()
-        msg.header.stamp    = now
-        msg.header.frame_id = 'base_link'
-        msg.angle_min       = self._angle_min
-        msg.angle_max       = self._angle_max
-        msg.angle_increment = self._angle_increment
-        msg.time_increment  = 0.0
-        msg.scan_time       = self._loop_dt
-        msg.range_min       = self._range_min
-        msg.range_max       = self._range_max
-        msg.ranges          = ranges
+        for ch, pub in self._publishers.items():
+            dist_cm = self._scanner.get_distance(ch)
+            distance_m = dist_cm / 100.0 if dist_cm > 0 else self._range_max
 
-        self._pub.publish(msg)
+            msg = LaserScan()
+            msg.header.stamp    = now
+            msg.header.frame_id = self._frames[ch]
+            msg.angle_min       = 0.0
+            msg.angle_max       = 0.0
+            msg.angle_increment = 0.0
+            msg.time_increment  = 0.0
+            msg.scan_time       = self._loop_dt
+            msg.range_min       = self._range_min
+            msg.range_max       = self._range_max
+            msg.ranges          = [distance_m]
+
+            pub.publish(msg)
 
     def destroy_node(self):
         if hasattr(self, '_scanner'):
