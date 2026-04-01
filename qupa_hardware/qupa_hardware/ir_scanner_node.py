@@ -159,17 +159,13 @@ class IRScannerNode(Node):
         self.declare_parameter('loop_dt',        0.01)
         self.declare_parameter('cal_range',      [4.0, 50.0])
 
-        # Calibration coefficients — flat list: [ch, a, b, c, ch, a, b, c, ...]
-        # Default matches sensor.yaml channels 1,2,3,5,6,7
-        default_coeffs = [
-            1, -0.0006299,  0.5671630,  0.6585924,
-            2, -0.0009288,  0.6876107, -1.3613167,
-            3, -0.0016829,  0.7494877, -1.8706732,
-            5,  0.0002581,  0.5470853,  1.0180294,
-            6, -0.0019746,  0.7568900, -1.4506072,
-            7, -0.0009400,  0.6889223, -0.7839605,
-        ]
-        self.declare_parameter('calibration_coeffs', default_coeffs)
+        # Calibration coefficients — one [a, b, c] list per channel
+        self.declare_parameter('cal_ch1', [-0.0006299,  0.5671630,  0.6585924])
+        self.declare_parameter('cal_ch2', [-0.0009288,  0.6876107, -1.3613167])
+        self.declare_parameter('cal_ch3', [-0.0016829,  0.7494877, -1.8706732])
+        self.declare_parameter('cal_ch5', [ 0.0002581,  0.5470853,  1.0180294])
+        self.declare_parameter('cal_ch6', [-0.0019746,  0.7568900, -1.4506072])
+        self.declare_parameter('cal_ch7', [-0.0009400,  0.6889223, -0.7839605])
 
         mux_addr    = self.get_parameter('mux_address').value
         sensor_addr = self.get_parameter('sensor_address').value
@@ -179,8 +175,10 @@ class IRScannerNode(Node):
         self._loop_dt  = self.get_parameter('loop_dt').value
         cal_range      = list(self.get_parameter('cal_range').value)
 
-        raw_coeffs  = list(self.get_parameter('calibration_coeffs').value)
-        cal_channels = self._parse_coeffs(raw_coeffs)
+        cal_channels = {
+            ch: dict(zip('abc', self.get_parameter(f'cal_ch{ch}').value))
+            for ch in KEEP_CHANNELS
+        }
 
         # ── Publisher ──
         self._pub = self.create_publisher(Float32MultiArray, 'scan', 10)
@@ -209,17 +207,6 @@ class IRScannerNode(Node):
             f'IR Scanner ready — publishing {len(KEEP_CHANNELS)} sensors '
             f'on /scan at {1.0/self._loop_dt:.1f} Hz'
         )
-
-    # ── Helpers ──────────────────────────────────────────────────────────────
-
-    @staticmethod
-    def _parse_coeffs(flat: list) -> dict:
-        """Convert [ch, a, b, c, ...] flat list to {ch: {a,b,c}} dict."""
-        result = {}
-        it = iter(flat)
-        for ch, a, b, c in zip(it, it, it, it):
-            result[int(ch)] = {'a': float(a), 'b': float(b), 'c': float(c)}
-        return result
 
     # ── Timer callback ────────────────────────────────────────────────────────
 
