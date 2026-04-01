@@ -41,12 +41,12 @@ REG_DIST_L = 0x5F
 # Channels and their angles in radians (ROS REP-103 convention)
 # Each entry: (channel_number, angle_rad)
 SENSOR_MAP = [
-    (1, -math.pi / 2),       # S
-    (2,  math.pi),            # W
-    (3,  3 * math.pi / 4),   # NW
-    (5,  math.pi / 2),       # N
-    (6,  math.pi / 4),       # NE
-    (7,  0.0),                # E
+    (1, -math.pi / 2),       # S   → -90°
+    (2,  math.pi),            # W   → 180°
+    (3,  3 * math.pi / 4),   # NW  → 135°
+    (4,  math.pi / 2),       # N   →  90°
+    (5,  math.pi / 4),       # NE  →  45°
+    (6,  0.0),                # E   →   0°
 ]
 
 KEEP_CHANNELS = [ch for ch, _ in SENSOR_MAP]
@@ -177,12 +177,12 @@ class IRScannerNode(Node):
         self.declare_parameter('cal_range',      [4.0, 50.0])
 
         # Calibration coefficients — one [a, b, c] list per channel
-        self.declare_parameter('cal_ch1', [-0.0006299,  0.5671630,  0.6585924])
-        self.declare_parameter('cal_ch2', [-0.0009288,  0.6876107, -1.3613167])
-        self.declare_parameter('cal_ch3', [-0.0016829,  0.7494877, -1.8706732])
-        self.declare_parameter('cal_ch5', [ 0.0002581,  0.5470853,  1.0180294])
-        self.declare_parameter('cal_ch6', [-0.0019746,  0.7568900, -1.4506072])
-        self.declare_parameter('cal_ch7', [-0.0009400,  0.6889223, -0.7839605])
+        self.declare_parameter('cal_ch1', [-0.0006299,  0.5671630,  0.6585924])  # S
+        self.declare_parameter('cal_ch2', [-0.0009288,  0.6876107, -1.3613167])  # W
+        self.declare_parameter('cal_ch3', [-0.0016829,  0.7494877, -1.8706732])  # NW
+        self.declare_parameter('cal_ch4', [ 0.0002581,  0.5470853,  1.0180294])  # N
+        self.declare_parameter('cal_ch5', [-0.0019746,  0.7568900, -1.4506072])  # NE
+        self.declare_parameter('cal_ch6', [-0.0009400,  0.6889223, -0.7839605])  # E
 
         mux_addr       = self.get_parameter('mux_address').value
         sensor_addr    = self.get_parameter('sensor_address').value
