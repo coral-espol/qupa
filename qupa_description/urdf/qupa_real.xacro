@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<!-- Wrapper for the real robot (no module, no high_res camera) -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="qupa">
+
+  <xacro:arg name="tf_prefix" default="qupa"/>
+  <xacro:arg name="high_res"  default="false"/>
+  <xacro:arg name="module"    default="false"/>
+
+  <xacro:include filename="$(find qupa_description)/urdf/qupa.xacro"/>
+
+</robot>
