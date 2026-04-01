@@ -11,10 +11,7 @@
 source /opt/ros/jazzy/setup.bash
 
 export ROS_DOMAIN_ID=0
-export ROS_LOCALHOST_ONLY=0
-
-# With mirrored networking, WSL2 shares the Windows host IP.
-# Verify with: ip addr show eth0   (or hostname -I)
-export ROS_IP=192.168.0.111
+export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
+export ROS_STATIC_PEERS=192.168.0.120
 
 echo "[ROS2 PC/WSL2] Jazzy sourced — IP=${ROS_IP}, DOMAIN_ID=${ROS_DOMAIN_ID}"
