@@ -36,13 +36,14 @@ REG_DIST_H = 0x5E
 REG_DIST_L = 0x5F
 
 # Mapping: (channel, tf_frame, topic_suffix)
+# Channels 0 and 4 have no physical sensor — skipped
 SENSOR_MAP = [
     (1, 'ir_270', 'ir_s'),
     (2, 'ir_180', 'ir_w'),
     (3, 'ir_135', 'ir_nw'),
-    (4, 'ir_90',  'ir_n'),
-    (5, 'ir_45',  'ir_ne'),
-    (6, 'ir_0',   'ir_e'),
+    (5, 'ir_90',  'ir_n'),
+    (6, 'ir_45',  'ir_ne'),
+    (7, 'ir_0',   'ir_e'),
 ]
 
 KEEP_CHANNELS = [ch for ch, _, _ in SENSOR_MAP]
@@ -176,9 +177,9 @@ class IRScannerNode(Node):
         self.declare_parameter('cal_ch1', [-0.0006299,  0.5671630,  0.6585924])  # S
         self.declare_parameter('cal_ch2', [-0.0009288,  0.6876107, -1.3613167])  # W
         self.declare_parameter('cal_ch3', [-0.0016829,  0.7494877, -1.8706732])  # NW
-        self.declare_parameter('cal_ch4', [ 0.0002581,  0.5470853,  1.0180294])  # N
-        self.declare_parameter('cal_ch5', [-0.0019746,  0.7568900, -1.4506072])  # NE
-        self.declare_parameter('cal_ch6', [-0.0009400,  0.6889223, -0.7839605])  # E
+        self.declare_parameter('cal_ch5', [ 0.0002581,  0.5470853,  1.0180294])  # N
+        self.declare_parameter('cal_ch6', [-0.0019746,  0.7568900, -1.4506072])  # NE
+        self.declare_parameter('cal_ch7', [-0.0009400,  0.6889223, -0.7839605])  # E
 
         mux_addr       = self.get_parameter('mux_address').value
         sensor_addr    = self.get_parameter('sensor_address').value
