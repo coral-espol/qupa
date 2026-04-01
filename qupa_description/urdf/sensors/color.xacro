@@ -1,0 +1,87 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg tf_prefix)">
+
+  <xacro:macro name="color_camera">
+
+    <link name="color_camera_link">
+      <!-- <inertial>
+        <origin
+          xyz="-5.7803E-05 0.0048279 -9.8775E-07"
+          rpy="0 0 0" />
+        <mass
+          value="0.0034683" />
+        <inertia
+          ixx="2.4565E-07"
+          ixy="9.4669E-10"
+          ixz="-3.3359E-11"
+          iyy="4.031E-07"
+          iyz="-7.7399E-12"
+          izz="2.2473E-07" />
+      </inertial> -->
+      <!-- <visual>
+        <origin
+          xyz="0 0 0"
+          rpy="0 0 0" />
+        <geometry>
+          <mesh
+            filename="package://qupa_description/meshes/color.dae" scale="0.6 0.5 0.6"/>
+        </geometry>
+        <material
+          name="">
+          <color
+            rgba="0.79216 0.81961 0.93333 1" />
+        </material>
+      </visual> -->
+      <!-- <collision>
+        <origin
+          xyz="0 0 0"
+          rpy="0 0 0" />
+        <geometry>
+          <mesh
+            filename="package://qupa_description/meshes/color.dae" scale="0.4 0.5 0.4" />
+        </geometry>
+      </collision> -->
+    </link>
+    <joint name="color_camera_joint" type="fixed">
+      <origin
+        xyz="-0.043 0 0.009"
+        rpy="0 0 0" />
+      <parent
+        link="base_link" />
+      <child
+        link="color_camera_link" />
+      <axis
+        xyz="0 0 1" />
+    </joint>
+
+    <gazebo reference="color_camera_link">
+      <sensor  name="$(arg tf_prefix)_color_camera" type="camera">
+        <pose>0 0 0.0 0 0 0</pose>            <!--Ajusta la posición/orientación si es necesario -->
+        <update_rate>30.0</update_rate>           <!-- Frecuencia de actualización en Hz -->
+        <camera>
+          <vertical_fov>1.0</vertical_fov>  <!-- Campo de visión horizontal en radianes -->
+          <image>
+            <width>540</width>                    <!-- Resolución horizontal -->
+            <height>540</height>                  <!-- Resolución vertical -->
+            <format>R8G8B8</format>               <!-- Formato de imagen -->
+          </image>
+          <clip>
+            <near>0.01</near>                     <!-- Distancia mínima del plano de visión -->
+            <far>0.04</far>                        <!-- Distancia máxima del plano de visión -->
+          </clip>
+        </camera>
+        <plugin name="$(arg tf_prefix)_color_sensor" filename="libgazebo_ros_camera.so">
+          <ros>
+            <namespace>$(arg tf_prefix)</namespace>
+          </ros>
+          <alwaysOn>true</alwaysOn>
+          <updateRate>20.0</updateRate>
+          <cameraName>color_camera</cameraName>
+          <imageTopicName>/$(arg tf_prefix)/color_camera/image_raw</imageTopicName>
+          <cameraInfoTopicName>/$(arg tf_prefix)/color_camera/camera_info</cameraInfoTopicName>
+          <frameName>$(arg tf_prefix)/color_camera_link</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+</robot>

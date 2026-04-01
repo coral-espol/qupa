@@ -1,0 +1,305 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:property name="base_mass" value="1" />
+    <xacro:property name="base_scale" value="1 1 1" />
+
+    <!--Base with Module installed-->
+    <xacro:macro name="module">  
+
+        <link name="base_link">
+            <inertial>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <mass value="${base_mass}" />
+                <inertia
+                    ixx="0.01423"
+                    ixy="0"
+                    ixz="0"
+                    iyy="0.01423"
+                    iyz="0"
+                    izz="0.00180" />
+                </inertial>
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <mesh filename="package://qupa_description/meshes/module.dae" scale="${base_scale}" />
+                </geometry>
+            </visual>
+            <collision>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <mesh filename="package://qupa_description/meshes/module.dae" scale="${base_scale}" />
+                </geometry>
+                <self_collide>false</self_collide>
+            </collision>
+        </link>
+
+        <joint name="imu_joint" type="fixed">
+            <parent link="base_link"/>
+            <child link="imu_link"/>
+            <origin xyz="0.0 0 0.07" rpy="0 0 0"/>
+        </joint>
+
+        <link name="imu_link">
+            <inertial>
+                <mass value="0.05"/>
+                <inertia ixx="0.000001" ixy="0" ixz="0"
+                        iyy="0.000001" iyz="0"
+                        izz="0.000001"/>
+            </inertial>
+            <visual>
+                <geometry>
+                    <box size="0.01 0.01 0.01"/>
+                </geometry>
+            </visual>
+            <collision>
+                <geometry>
+                    <box size="0.01 0.01 0.01"/>
+                </geometry>
+            </collision>
+        </link>
+    </xacro:macro>
+
+    <!--Link Macros-->
+    <!--Link 1-->
+    <xacro:macro name="link_1" params="prefix parent_link := base_link xyz rpy">
+    
+        <link name="${prefix}_Link_1">
+        <inertial>
+            <origin xyz="0.012363 -1.8353E-05 0.00015006" rpy="0 0 0"/>
+            <mass value="0.05"/>
+            <inertia    ixx="1e-4" 
+                        iyy="1e-4" 
+                        izz="1e-4"
+                        ixy="0.0" 
+                        ixz="0.0" 
+                        iyz="0.0"/>
+        </inertial>
+
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://qupa_description/meshes/Link_1.dae"/>
+            </geometry>
+            <material name="">
+                <color rgba="0.79216 0.81961 0.93333 1"/>
+            </material>
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="package://qupa_description/meshes/Link_1.dae"/>
+            </geometry>
+        </collision>
+        </link>
+
+        <joint name="${prefix}_joint_1" type="revolute">
+            <origin xyz="${xyz}" rpy="${rpy}"/>
+            <parent link="${parent_link}"/>
+            <child link="${prefix}_Link_1"/>
+            <axis xyz="0 0 1"/>
+            <limit lower="-3.1416" upper="3.1416" effort="100" velocity="1.0"/>
+        </joint>
+    </xacro:macro>
+
+    <!--Link_2-->
+    <xacro:macro name="link_2" params="xyz rpy">
+        <link name="Left_Link_2">
+            <inertial>
+            <origin xyz="0.04348 8.573E-09 0" rpy="0 0 0" />
+            <mass value="0.0088342" />
+            <inertia
+                ixx="3.7267E-07"
+                ixy="-4.249E-13"
+                ixz="-2.8932E-22"
+                iyy="7.869E-06"
+                iyz="-5.0756E-22"
+                izz="8.2181E-06" />
+            </inertial>
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <mesh filename="package://qupa_description/meshes/Left_Link_2.dae" />
+                </geometry>
+                <material name="">
+                    <color rgba="0.79216 0.81961 0.93333 1" />
+                </material>
+            </visual>
+            <collision>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <geometry>
+                <mesh filename="package://qupa_description/meshes/Left_Link_2.dae" />
+            </geometry>
+            </collision>
+        </link>
+        <joint name="Left_joint_2" type="revolute">
+            <origin xyz="${xyz}" rpy="${rpy}" />
+            <parent link="Left_Link_1" />
+            <child link="Left_Link_2" />
+            <axis xyz="0 0 1" />
+            <limit  lower="-3.1416"
+                    upper="3.1416"
+                    effort="10"
+                    velocity="1.0" />
+        </joint>
+    </xacro:macro>
+
+    <!--Link 3-->
+    <xacro:macro name="link_3" params="xyz rpy">
+        <link name="Right_Link_2">
+            <inertial>
+                <origin xyz="0.057303 -2.0162E-05 0.0062769" rpy="0 0 0" />
+                <mass value="0.016011" />
+                <inertia
+                    ixx="1.0111E-06"
+                    ixy="-2.1627E-10"
+                    ixz="-3.8757E-07"
+                    iyy="1.1973E-05"
+                    iyz="-1.7347E-11"
+                    izz="1.2163E-05" />
+            </inertial>
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <mesh  filename="package://qupa_description/meshes/Right_Link_2.dae" />
+                </geometry>
+                <material name="">
+                    <color rgba="0.79216 0.81961 0.93333 1" />
+                </material>
+            </visual>
+            <collision>
+                <origin xyz="0 0 0"  rpy="0 0 0" />
+                <geometry>
+                    <mesh filename="package://qupa_description/meshes/Right_Link_2.dae" />
+                </geometry>
+            </collision>
+        </link>
+        <joint name="Right_joint_2"  type="revolute">
+            <origin xyz="${xyz}" rpy="${rpy}" />
+            <parent link="Right_Link_1" />
+            <child  link="Right_Link_2" />
+            <axis   xyz="0 0 1" />
+            <limit
+                lower="-3.1416"
+                upper="3.1416"
+                effort="10"
+                velocity="1.0" />
+        </joint>
+    </xacro:macro>
+
+    <!--End Effecto Macro-->
+    <xacro:macro name="EE">
+        <link name="EE_Link">
+            <inertial>
+            <origin
+                xyz="-5.1346E-05 0 -0.015631"
+                rpy="0 0 0" />
+            <mass
+                value="0.0029591" />
+            <inertia
+                ixx="2.7717E-07"
+                ixy="9.458E-24"
+                ixz="-1.8793E-09"
+                iyy="2.7664E-07"
+                iyz="1.0011E-23"
+                izz="6.0335E-08" />
+            </inertial>
+            <visual>
+                <origin
+                    xyz="0 0 0"
+                    rpy="0 0 0" />
+                <geometry>
+                    <mesh
+                    filename="package://qupa_description/meshes/EE_Link.dae" />
+                </geometry>
+                <material
+                    name="">
+                    <color
+                    rgba="0.79216 0.81961 0.93333 1" />
+                </material>
+            </visual>
+            <collision>
+                <origin
+                    xyz="0 0 0"
+                    rpy="0 0 0" />
+                <geometry>
+                    <mesh
+                    filename="package://qupa_description/meshes/EE_Link.dae" />
+                </geometry>
+            </collision>
+        </link>
+        <joint name="EE_joint" type="prismatic">
+            <origin
+                xyz="0.09 0 -0.052019"
+                rpy="3.1416 0 -0.33145" />
+            <parent link="Right_Link_2" />
+            <child link="EE_Link" />
+            <axis xyz="0 0 1" />
+            <limit
+                lower="-0.005"
+                upper="0.04"
+                effort="10"
+                velocity="0.01" />
+        </joint>
+
+        <!-- Joint pasivo entre Left_Link_2 y closure_link -->
+          <gazebo>
+            <joint name="closure" type="revolute">
+            <parent>Left_Link_2</parent>
+            <child>Right_Link_2</child>
+            <pose>0.09 0 0 3.1416 0 -0.33145</pose>
+            <axis>
+                <xyz>0 0 1</xyz>
+                <limit>
+                <lower>-6.2</lower>
+                <upper>6.2</upper>
+                </limit>
+            </axis>
+            </joint>
+        </gazebo>
+
+
+    </xacro:macro>
+
+    <!--Joint Controller Macros-->
+    <xacro:macro name="transmission" params="name joint_name actuator_name">
+        <transmission name="${name}" >
+            <type>transmission_interface/SimpleTransmission</type>
+            <joint name = "${joint_name}" >
+                <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+            </joint>
+            <actuator name="${actuator_name}" >
+                <hardwareInterface>hardware_interface/PositionJointInterface</hardwareInterface>
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+        </transmission>
+    </xacro:macro>
+
+    <xacro:macro name="transmission_effort" params="name joint_name actuator_name">
+        <transmission name="${name}" >
+            <type>transmission_interface/SimpleTransmission</type>
+            <joint name = "${joint_name}" >
+                <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+            </joint>
+            <actuator name="${actuator_name}" >
+                <hardwareInterface>hardware_interface/EffortJointInterface</hardwareInterface>
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+        </transmission>
+    </xacro:macro>
+
+    <xacro:macro name="transmission_passive" params="name joint_name actuator_name">
+        <transmission name="${name}">
+            <type>transmission_interface/SimpleTransmission</type>
+            <actuator name="${actuator_name}">
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+            <joint name="${joint_name}">
+                <hardwareInterface>hardware_interface/PassiveJointInterface</hardwareInterface>
+            </joint>
+        </transmission>
+    </xacro:macro>
+
+
+</robot>

@@ -1,0 +1,100 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg tf_prefix)">
+
+  <!--Xacro Properties-->
+  <xacro:property name="ray_visualizer" value="false" /> <!--Visualize IR sensor in Gazebo-->
+  
+  
+  <!-- IR sensor visual-->
+  <xacro:macro name="ir_sensor" params="link_name joint_name
+                                        joint_origin_xyz joint_origin_rpy">
+    <!--Link Definition -->
+    <link name="${link_name}">
+      <inertial>
+        <mass value="0.01"/>
+        <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <mesh filename="package://qupa_description/meshes/infrared.dae" />
+        </geometry>
+        <material name="sensor_material">
+          <color rgba="0.79216 0.81961 0.93333 1" />
+        </material>
+      </visual>
+    </link>
+    <!-- Joint Definition -->
+    <joint name="${joint_name}" type="fixed">
+      <origin xyz="${joint_origin_xyz}" rpy="${joint_origin_rpy}" />
+      <parent link="base_link" />
+      <child link="${link_name}" />
+      <axis xyz="0 0 0" />
+    </joint>                                                                                                
+  </xacro:macro>
+
+  <!-- IR sensor Macro-->
+  <xacro:macro name="infrared" params="joint_origin_xyz joint_origin_rpy">
+    <!--Link Definition -->
+    <link name="infrared_link">
+      <inertial>
+        <mass value="0.0001"/>
+        <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+      </inertial>
+      <visual>
+        <geometry>
+          <box size="0.01 0.01 0.01"/>
+        </geometry>
+        <material name="gray">
+          <color rgba="0.5 0.5 0.5 1"/>
+        </material>
+      </visual>
+      <collision>
+        <geometry>
+          <box size="0.01 0.01 0.01"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <!-- Joint Definition -->
+    <joint name="infrared_joint" type="fixed">
+      <origin xyz="${joint_origin_xyz}" rpy="${joint_origin_rpy}" />
+      <parent link="base_link" />
+      <child link="infrared_link" />
+      <axis xyz="0 0 0" />
+    </joint>
+
+    <!-- Gazebo reference and Sensor configuration -->
+    <gazebo reference="infrared_link">
+      <sensor type="ray" name="$(arg tf_prefix)_infrared_sensor">
+        <pose>0 0 0 1.5708 0 0</pose>
+        <visualize>${ray_visualizer}</visualize>
+        <update_rate>30</update_rate>
+        <ray>
+          <scan>
+            <horizontal>
+              <samples>9</samples>
+              <resolution>1</resolution>
+              <min_angle>0</min_angle>
+              <max_angle>${2*M_PI}</max_angle>
+            </horizontal>
+          </scan>
+          <range>
+            <min>0.08</min>
+            <max>0.56</max>
+            <resolution>0.01</resolution>
+          </range>
+          <noise>
+            <type>gaussian</type>
+            <mean>0.0</mean>
+            <stddev>0.005</stddev>
+          </noise>
+        </ray>
+        <plugin name="$(arg tf_prefix)/infrared_plugin" filename="libgazebo_ros_laser.so">
+          <topicName>$(arg tf_prefix)/scan</topicName>
+          <frameName>$(arg tf_prefix)/infrared_link</frameName>
+        </plugin>
+      </sensor>
+    </gazebo>
+  </xacro:macro>
+</robot>
