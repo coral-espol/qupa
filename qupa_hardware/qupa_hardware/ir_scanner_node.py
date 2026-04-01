@@ -3,18 +3,28 @@
 """
 ir_scanner_node — ROS2 Jazzy node for GP2Y0E03 IR proximity sensors.
 
-Publishes to /scan as std_msgs/Float32MultiArray with 6 distance values (cm).
-Special values:
-  -1.0  → sensor saturated (object too close / out of range)
-  -2.0  → I2C read error / channel not responding
+Publishes to 'scan' as sensor_msgs/LaserScan.
+Sensor layout (ROS REP-103: 0=East, CCW positive):
+
+  Idx | Channel | Direction | Angle
+  ----+---------+-----------+--------
+   0  |   ch1   |     S     | -π/2
+   1  |   ch2   |     W     |  π
+   2  |   ch3   |    NW     |  3π/4
+   3  |   ch5   |     N     |  π/2
+   4  |   ch6   |    NE     |  π/4
+   5  |   ch7   |     E     |  0
+
+Saturated or error readings are published as range_max (no obstacle detected).
 """
 
+import math
 import time
 import statistics
 
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import Float32MultiArray, MultiArrayDimension
+from sensor_msgs.msg import LaserScan
 
 try:
     import smbus2
@@ -28,15 +38,24 @@ REG_SHIFT  = 0x35
 REG_DIST_H = 0x5E
 REG_DIST_L = 0x5F
 
-# Channels kept after filtering (indices into active_channels list)
-# active_channels = [0,1,2,3,4,5,6,7] → we keep channels 1,2,3,5,6,7
-KEEP_CHANNELS = [1, 2, 3, 5, 6, 7]
+# Channels and their angles in radians (ROS REP-103 convention)
+# Each entry: (channel_number, angle_rad)
+SENSOR_MAP = [
+    (1, -math.pi / 2),       # S
+    (2,  math.pi),            # W
+    (3,  3 * math.pi / 4),   # NW
+    (5,  math.pi / 2),       # N
+    (6,  math.pi / 4),       # NE
+    (7,  0.0),                # E
+]
+
+KEEP_CHANNELS = [ch for ch, _ in SENSOR_MAP]
 
 
 # ── Calibration helper ───────────────────────────────────────────────────────
 
 def apply_calibration(channel: int, raw_cm: float, cal_channels: dict,
-                       cal_range: list) -> float:
+                      cal_range: list) -> float:
     """Apply per-channel quadratic calibration: dist = a*x² + b*x + c."""
     if channel not in cal_channels:
         return raw_cm
@@ -57,11 +76,11 @@ class IRScanner:
     def __init__(self, mux_addr: int, sensor_addr: int,
                  settle_s: float, samples: int, sample_delay_s: float,
                  cal_channels: dict, cal_range: list):
-        self.bus         = smbus2.SMBus(1)
-        self.mux_addr    = mux_addr
-        self.sensor_addr = sensor_addr
-        self.settle_s    = settle_s
-        self.samples     = samples
+        self.bus            = smbus2.SMBus(1)
+        self.mux_addr       = mux_addr
+        self.sensor_addr    = sensor_addr
+        self.settle_s       = settle_s
+        self.samples        = samples
         self.sample_delay_s = sample_delay_s
         self.cal_channels   = cal_channels
         self.cal_range      = cal_range
@@ -110,7 +129,7 @@ class IRScanner:
         Return calibrated distance in cm for *channel*.
         Returns -1.0 (saturated) or -2.0 (I2C error) on failure.
         """
-        if not _select_channel_safe(self, channel):
+        if not self._select_channel(channel):
             return -2.0
 
         # Discard first reading (settling artefact)
@@ -139,10 +158,6 @@ class IRScanner:
         return -2.0
 
 
-def _select_channel_safe(scanner: IRScanner, channel: int) -> bool:
-    return scanner._select_channel(channel)
-
-
 # ── ROS2 Node ────────────────────────────────────────────────────────────────
 
 class IRScannerNode(Node):
@@ -150,13 +165,15 @@ class IRScannerNode(Node):
     def __init__(self):
         super().__init__('ir_scanner')
 
-        # ── Parameters (can be overridden via launch / param file) ──
+        # ── Parameters ──
         self.declare_parameter('mux_address',    0x70)
         self.declare_parameter('sensor_address', 0x40)
         self.declare_parameter('samples',        3)
         self.declare_parameter('settle_s',       0.001)
         self.declare_parameter('sample_delay_s', 0.001)
-        self.declare_parameter('loop_dt',        0.01)
+        self.declare_parameter('loop_dt',        0.1)
+        self.declare_parameter('range_min_m',    0.04)   # 4 cm
+        self.declare_parameter('range_max_m',    0.50)   # 50 cm
         self.declare_parameter('cal_range',      [4.0, 50.0])
 
         # Calibration coefficients — one [a, b, c] list per channel
@@ -167,12 +184,14 @@ class IRScannerNode(Node):
         self.declare_parameter('cal_ch6', [-0.0019746,  0.7568900, -1.4506072])
         self.declare_parameter('cal_ch7', [-0.0009400,  0.6889223, -0.7839605])
 
-        mux_addr    = self.get_parameter('mux_address').value
-        sensor_addr = self.get_parameter('sensor_address').value
-        samples     = self.get_parameter('samples').value
-        settle_s    = self.get_parameter('settle_s').value
+        mux_addr       = self.get_parameter('mux_address').value
+        sensor_addr    = self.get_parameter('sensor_address').value
+        samples        = self.get_parameter('samples').value
+        settle_s       = self.get_parameter('settle_s').value
         sample_delay_s = self.get_parameter('sample_delay_s').value
         self._loop_dt  = self.get_parameter('loop_dt').value
+        self._range_min = self.get_parameter('range_min_m').value
+        self._range_max = self.get_parameter('range_max_m').value
         cal_range      = list(self.get_parameter('cal_range').value)
 
         cal_channels = {
@@ -181,7 +200,7 @@ class IRScannerNode(Node):
         }
 
         # ── Publisher ──
-        self._pub = self.create_publisher(Float32MultiArray, 'scan', 10)
+        self._pub = self.create_publisher(LaserScan, 'scan', 10)
 
         # ── Scanner ──
         if not SMBUS_AVAILABLE:
@@ -202,28 +221,51 @@ class IRScannerNode(Node):
             self.get_logger().error(f'Failed to open I2C bus: {e}')
             return
 
+        # Full 360° scan at 1° resolution — slots without sensors stay at inf
+        self._num_readings    = 360
+        self._angle_min       = -math.pi
+        self._angle_max       =  math.pi
+        self._angle_increment =  2 * math.pi / self._num_readings
+
+        # Pre-compute each sensor's index in the ranges array
+        self._sensor_indices = []
+        for ch, angle in SENSOR_MAP:
+            idx = round((angle - self._angle_min) / self._angle_increment) % self._num_readings
+            self._sensor_indices.append((ch, idx))
+
         self._timer = self.create_timer(self._loop_dt, self._scan_callback)
         self.get_logger().info(
-            f'IR Scanner ready — publishing {len(KEEP_CHANNELS)} sensors '
-            f'on /scan at {1.0/self._loop_dt:.1f} Hz'
+            f'IR Scanner ready — publishing LaserScan on scan '
+            f'at {1.0/self._loop_dt:.1f} Hz'
         )
 
     # ── Timer callback ────────────────────────────────────────────────────────
 
     def _scan_callback(self):
-        distances = []
-        for ch in KEEP_CHANNELS:
-            dist = self._scanner.get_distance(ch)
-            distances.append(float(dist))
+        ranges = [float('inf')] * self._num_readings
 
-        msg = Float32MultiArray()
-        msg.layout.dim = [
-            MultiArrayDimension(label='sensors', size=len(distances), stride=len(distances))
-        ]
-        msg.data = distances
+        for ch, idx in self._sensor_indices:
+            dist_cm = self._scanner.get_distance(ch)
+
+            if dist_cm > 0:
+                ranges[idx] = dist_cm / 100.0   # cm → m, only valid positive readings
+            # <= 0 (saturated / error) → leave as inf
+
+        now = self.get_clock().now().to_msg()
+
+        msg = LaserScan()
+        msg.header.stamp    = now
+        msg.header.frame_id = 'base_link'
+        msg.angle_min       = self._angle_min
+        msg.angle_max       = self._angle_max
+        msg.angle_increment = self._angle_increment
+        msg.time_increment  = 0.0
+        msg.scan_time       = self._loop_dt
+        msg.range_min       = self._range_min
+        msg.range_max       = self._range_max
+        msg.ranges          = ranges
 
         self._pub.publish(msg)
-        self.get_logger().debug(str(distances))
 
     def destroy_node(self):
         if hasattr(self, '_scanner'):

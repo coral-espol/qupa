@@ -8,7 +8,7 @@ ir_scanner:
     samples: 3
     settle_s: 0.001
     sample_delay_s: 0.001
-    loop_dt: 0.01            # 100 Hz
+    loop_dt: 0.1             # 10 Hz
 
     # Calibration output clamp [min_cm, max_cm]
     cal_range: [4.0, 50.0]
