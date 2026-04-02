@@ -183,7 +183,6 @@ class CameraNode(Node):
         self._cam = Picamera2()
         cfg = self._cam.create_video_configuration(
             main={'size': (W, H), 'format': 'RGB888'},
-            controls={'AwbEnable': True, 'AeEnable': True},
             transform=Transform(hflip=0, vflip=1),
         )
         self._cam.configure(cfg)
@@ -191,6 +190,12 @@ class CameraNode(Node):
 
         self.get_logger().info(f'Camera warming up for {warmup_s} s …')
         time.sleep(warmup_s)
+
+        try:
+            self._cam.set_controls({'AwbEnable': True, 'AeEnable': True})
+            time.sleep(0.5)
+        except Exception as e:
+            self.get_logger().warn(f'Could not set AWB/AE: {e}')
 
         if lock_awb_ae:
             try:
