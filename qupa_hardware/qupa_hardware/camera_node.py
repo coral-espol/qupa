@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-camera_node — ROS2 Jazzy node for the Raspberry Pi camera (picamera2).
+camera_node — ROS2 Jazzy node for the Raspberry Pi camera (OpenCV V4L2).
 
 Captures at 5 Hz, applies ring mask, runs HSV colour detection, and publishes:
   camera/image_filtered/compressed  — annotated JPEG  (always, ~30–50 KB/frame)
@@ -19,13 +19,6 @@ import numpy as np
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage, Image
-
-try:
-    from picamera2 import Picamera2
-    from libcamera import Transform
-    PICAM_OK = True
-except ImportError:
-    PICAM_OK = False
 
 PUBLISH_HZ = 5.0
 
@@ -93,9 +86,10 @@ class CameraNode(Node):
         self.declare_parameter('image_width',   640)
         self.declare_parameter('image_height',  480)
         self.declare_parameter('warmup_s',      2.0)
-        self.declare_parameter('lock_awb_ae',   True)
+        self.declare_parameter('vflip',         True)
         self.declare_parameter('jpeg_quality',  80)
-        self.declare_parameter('publish_raw',   False)  # enable only for calibration
+        self.declare_parameter('publish_raw',   False)
+        self.declare_parameter('video_device',  0)
 
         self.declare_parameter('inner_radius_px', 64)
         self.declare_parameter('inner_offset_x',  -4)
@@ -125,7 +119,7 @@ class CameraNode(Node):
         W            = self.get_parameter('image_width').value
         H            = self.get_parameter('image_height').value
         warmup_s     = self.get_parameter('warmup_s').value
-        lock_awb_ae  = self.get_parameter('lock_awb_ae').value
+        self._vflip       = self.get_parameter('vflip').value
         self._quality     = self.get_parameter('jpeg_quality').value
         self._publish_raw = self.get_parameter('publish_raw').value
         self._min_area    = self.get_parameter('min_area').value
@@ -171,38 +165,22 @@ class CameraNode(Node):
             self.get_logger().error('Ring mask is empty — check mask parameters.')
             return
         x0, y0, x1, y1 = bb
-        self._roi     = (x0, y0, x1, y1)
-        self._ring    = ring
+        self._roi      = (x0, y0, x1, y1)
+        self._ring     = ring
         self._ring_roi = ring[y0:y1, x0:x1]
 
-        # ── Camera ───────────────────────────────────────────────────────────
-        if not PICAM_OK:
-            self.get_logger().error('picamera2 not found — cannot open camera.')
-            return
+        # ── Camera (OpenCV V4L2) ──────────────────────────────────────────────
+        device = self.get_parameter('video_device').value
+        self._cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
+        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH,  W)
+        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
 
-        self._cam = Picamera2()
-        cfg = self._cam.create_video_configuration(
-            main={'size': (W, H), 'format': 'RGB888'},
-            transform=Transform(hflip=0, vflip=1),
-        )
-        self._cam.configure(cfg)
-        self._cam.start()
+        if not self._cap.isOpened():
+            self.get_logger().error(f'Cannot open /dev/video{device}.')
+            return
 
         self.get_logger().info(f'Camera warming up for {warmup_s} s …')
         time.sleep(warmup_s)
-
-        try:
-            self._cam.set_controls({'AwbEnable': True, 'AeEnable': True})
-            time.sleep(0.5)
-        except Exception as e:
-            self.get_logger().warn(f'Could not set AWB/AE: {e}')
-
-        if lock_awb_ae:
-            try:
-                self._cam.set_controls({'AwbEnable': False, 'AeEnable': False})
-                self.get_logger().info('AWB/AE locked.')
-            except Exception as e:
-                self.get_logger().warn(f'Could not lock AWB/AE: {e}')
 
         # ── Publishers ───────────────────────────────────────────────────────
         self._pub_flt = self.create_publisher(
@@ -231,8 +209,7 @@ class CameraNode(Node):
         return msg
 
     def _to_raw(self, frame, stamp):
-        from sensor_msgs.msg import Image as ImageMsg
-        msg = ImageMsg()
+        msg = Image()
         msg.header.stamp    = stamp
         msg.height          = frame.shape[0]
         msg.width           = frame.shape[1]
@@ -245,10 +222,16 @@ class CameraNode(Node):
     # ── Timer callback ────────────────────────────────────────────────────────
 
     def _timer_cb(self):
-        frame = self._cam.capture_array('main')   # BGR (RGB888 = BGR in memory)
-        now   = self.get_clock().now().to_msg()
+        ret, frame = self._cap.read()
+        if not ret:
+            self.get_logger().warn('Frame capture failed — skipping.')
+            return
 
-        # Publish raw locally (only when calibration node is active)
+        if self._vflip:
+            frame = cv2.flip(frame, 0)
+
+        now = self.get_clock().now().to_msg()
+
         if self._pub_raw is not None:
             self._pub_raw.publish(self._to_raw(frame, now))
 
@@ -292,8 +275,8 @@ class CameraNode(Node):
         self._pub_flt.publish(self._to_compressed(annotated, now))
 
     def destroy_node(self):
-        if hasattr(self, '_cam'):
-            self._cam.stop()
+        if hasattr(self, '_cap'):
+            self._cap.release()
         super().destroy_node()
 
 

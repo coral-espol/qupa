@@ -4,7 +4,8 @@ camera_node:
     image_width:  640
     image_height: 480
     warmup_s:     2.0
-    lock_awb_ae:  true
+    vflip:        true
+    video_device: 0
     jpeg_quality: 80    # JPEG compression quality (1-100). 80 ≈ 30-50 KB/frame at 640×480
     publish_raw:  false # Set true only when running calibration node (local loopback only)
 
