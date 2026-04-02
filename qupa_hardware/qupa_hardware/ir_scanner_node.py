@@ -16,6 +16,7 @@ each stamped with the sensor's TF frame from qupa_description.
     ch6   | ir_0    |   E
 """
 
+import math
 import time
 import statistics
 
@@ -47,6 +48,23 @@ SENSOR_MAP = [
 ]
 
 KEEP_CHANNELS = [ch for ch, _, _ in SENSOR_MAP]
+
+# Combined LaserScan layout — 8 slots, 45° each, frame = base_link
+# Slot index = angle / 45°;  missing directions (225°, 315°) → inf
+#   idx  angle  direction  channel
+#    0    0°      E          7
+#    1   45°      NE         6
+#    2   90°      N          5
+#    3  135°      NW         3
+#    4  180°      W          2
+#    5  225°      —          —
+#    6  270°      S          1
+#    7  315°      —          —
+CHANNEL_TO_SLOT = {7: 0, 6: 1, 5: 2, 3: 3, 2: 4, 1: 6}
+COMBINED_SLOTS  = 8
+COMBINED_AMIN   = 0.0
+COMBINED_AINC   = math.pi / 4          # 45°
+COMBINED_AMAX   = COMBINED_AINC * (COMBINED_SLOTS - 1)   # 315°
 
 
 # ── Calibration helper ───────────────────────────────────────────────────────
@@ -203,6 +221,9 @@ class IRScannerNode(Node):
         }
         self._frames = {ch: frame for ch, frame, _ in SENSOR_MAP}
 
+        # ── Combined scan publisher ──
+        self._scan_pub = self.create_publisher(LaserScan, 'scan', 10)
+
         # ── Scanner ──
         if not SMBUS_AVAILABLE:
             self.get_logger().error('smbus2 not found — cannot open I2C bus.')
@@ -233,10 +254,13 @@ class IRScannerNode(Node):
     def _scan_callback(self):
         now = self.get_clock().now().to_msg()
 
+        combined_ranges = [float('inf')] * COMBINED_SLOTS
+
         for ch, pub in self._publishers.items():
             dist_cm = self._scanner.get_distance(ch)
-            distance_m = dist_cm / 100.0 if dist_cm > 0 else self._range_max
+            distance_m = dist_cm / 100.0 if dist_cm > 0 else float('inf')
 
+            # Individual sensor scan
             msg = LaserScan()
             msg.header.stamp    = now
             msg.header.frame_id = self._frames[ch]
@@ -248,8 +272,24 @@ class IRScannerNode(Node):
             msg.range_min       = self._range_min
             msg.range_max       = self._range_max
             msg.ranges          = [distance_m]
-
             pub.publish(msg)
+
+            # Fill combined scan slot
+            combined_ranges[CHANNEL_TO_SLOT[ch]] = distance_m
+
+        # Combined scan in base_link
+        combined = LaserScan()
+        combined.header.stamp    = now
+        combined.header.frame_id = 'base_link'
+        combined.angle_min       = COMBINED_AMIN
+        combined.angle_max       = COMBINED_AMAX
+        combined.angle_increment = COMBINED_AINC
+        combined.time_increment  = 0.0
+        combined.scan_time       = self._loop_dt
+        combined.range_min       = self._range_min
+        combined.range_max       = self._range_max
+        combined.ranges          = combined_ranges
+        self._scan_pub.publish(combined)
 
     def destroy_node(self):
         if hasattr(self, '_scanner'):
