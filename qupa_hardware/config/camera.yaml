@@ -1,0 +1,72 @@
+camera_node:
+  ros__parameters:
+    # Capture
+    image_width:  640
+    image_height: 480
+    warmup_s:     2.0
+    lock_awb_ae:  true
+    jpeg_quality: 80    # JPEG compression quality (1-100). 80 ≈ 30-50 KB/frame at 640×480
+    publish_raw:  false # Set true only when running calibration node (local loopback only)
+
+    # Ring mask — inner dead zone
+    inner_radius_px: 64
+    inner_offset_x:  -4
+    inner_offset_y:  -38
+
+    # Ring mask — outer vision limit
+    outer_radius_px: 110
+    outer_offset_x:  -4
+    outer_offset_y:  -38
+
+    # Pole line exclusion masks (pixel coords, pairs define a filled quad)
+    pole_line1_p1: [0,   150]
+    pole_line1_p2: [250, 190]
+    pole_line2_p1: [0,   240]
+    pole_line2_p2: [250, 210]
+    pole_line3_p1: [100, 0]
+    pole_line3_p2: [180, 480]
+    pole_line4_p1: [140, 0]
+    pole_line4_p2: [220, 480]
+
+    # Detection
+    min_area: 50
+
+    # HSV color ranges [H, S, V]
+    color_blue_lower:  [100,  80,  60]
+    color_blue_upper:  [140, 255, 255]
+    color_green_lower: [ 35,  80,  80]
+    color_green_upper: [ 85, 255, 255]
+    color_red_lower:   [  0, 160, 120]
+    color_red_upper:   [  8, 255, 255]
+
+camera_calibration_node:
+  ros__parameters:
+    # Mirrors camera_node params — tune here and watch in RViz
+    image_width:  640
+    image_height: 480
+
+    inner_radius_px: 64
+    inner_offset_x:  -4
+    inner_offset_y:  -38
+
+    outer_radius_px: 110
+    outer_offset_x:  -4
+    outer_offset_y:  -38
+
+    pole_line1_p1: [0,   150]
+    pole_line1_p2: [250, 190]
+    pole_line2_p1: [0,   240]
+    pole_line2_p2: [250, 210]
+    pole_line3_p1: [100, 0]
+    pole_line3_p2: [180, 480]
+    pole_line4_p1: [140, 0]
+    pole_line4_p2: [220, 480]
+
+    color_blue_lower:  [100,  80,  60]
+    color_blue_upper:  [140, 255, 255]
+    color_green_lower: [ 35,  80,  80]
+    color_green_upper: [ 85, 255, 255]
+    color_red_lower:   [  0, 160, 120]
+    color_red_upper:   [  8, 255, 255]
+
+    min_area: 50

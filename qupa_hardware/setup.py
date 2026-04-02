@@ -27,7 +27,9 @@ setup(
     entry_points={
         'console_scripts': [
             'ir_scanner    = qupa_hardware.ir_scanner_node:main',
-            'motor_driver  = qupa_hardware.motor_driver_node:main',
+            'motor_driver       = qupa_hardware.motor_driver_node:main',
+            'camera             = qupa_hardware.camera_node:main',
+            'camera_calibration = qupa_hardware.camera_calibration_node:main',
         ],
     },
 )
