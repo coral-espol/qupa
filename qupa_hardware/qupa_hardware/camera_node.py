@@ -202,6 +202,7 @@ class CameraNode(Node):
     def _to_compressed(self, frame, stamp):
         msg = CompressedImage()
         msg.header.stamp = stamp
+        msg.header.frame_id = 'camera_link'
         msg.format = 'jpeg'
         _, buf = cv2.imencode('.jpg', frame,
                               [cv2.IMWRITE_JPEG_QUALITY, self._quality])
