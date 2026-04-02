@@ -212,6 +212,7 @@ class CameraNode(Node):
     def _to_raw(self, frame, stamp):
         msg = Image()
         msg.header.stamp    = stamp
+        msg.header.frame_id = 'camera_link'
         msg.height          = frame.shape[0]
         msg.width           = frame.shape[1]
         msg.encoding        = 'bgr8'
