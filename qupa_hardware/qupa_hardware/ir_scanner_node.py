@@ -214,13 +214,6 @@ class IRScannerNode(Node):
             for ch in KEEP_CHANNELS
         }
 
-        # ── Publishers — one per sensor ──
-        self._publishers = {
-            ch: self.create_publisher(LaserScan, topic, 10)
-            for ch, _, topic in SENSOR_MAP
-        }
-        self._frames = {ch: frame for ch, frame, _ in SENSOR_MAP}
-
         # ── Combined scan publisher ──
         self._scan_pub = self.create_publisher(LaserScan, 'scan', 10)
 
@@ -245,8 +238,7 @@ class IRScannerNode(Node):
 
         self._timer = self.create_timer(self._loop_dt, self._scan_callback)
         self.get_logger().info(
-            f'IR Scanner ready — publishing 6 LaserScan topics '
-            f'at {1.0/self._loop_dt:.1f} Hz'
+            f'IR Scanner ready — publishing /scan at {1.0/self._loop_dt:.1f} Hz'
         )
 
     # ── Timer callback ────────────────────────────────────────────────────────
@@ -254,42 +246,23 @@ class IRScannerNode(Node):
     def _scan_callback(self):
         now = self.get_clock().now().to_msg()
 
-        combined_ranges = [float('inf')] * COMBINED_SLOTS
-
-        for ch, pub in self._publishers.items():
+        ranges = [float('inf')] * COMBINED_SLOTS
+        for ch in KEEP_CHANNELS:
             dist_cm = self._scanner.get_distance(ch)
-            distance_m = dist_cm / 100.0 if dist_cm > 0 else float('inf')
+            ranges[CHANNEL_TO_SLOT[ch]] = dist_cm / 100.0 if dist_cm > 0 else float('inf')
 
-            # Individual sensor scan
-            msg = LaserScan()
-            msg.header.stamp    = now
-            msg.header.frame_id = self._frames[ch]
-            msg.angle_min       = 0.0
-            msg.angle_max       = 0.0
-            msg.angle_increment = 0.0
-            msg.time_increment  = 0.0
-            msg.scan_time       = self._loop_dt
-            msg.range_min       = self._range_min
-            msg.range_max       = self._range_max
-            msg.ranges          = [distance_m]
-            pub.publish(msg)
-
-            # Fill combined scan slot
-            combined_ranges[CHANNEL_TO_SLOT[ch]] = distance_m
-
-        # Combined scan in base_link
-        combined = LaserScan()
-        combined.header.stamp    = now
-        combined.header.frame_id = 'base_link'
-        combined.angle_min       = COMBINED_AMIN
-        combined.angle_max       = COMBINED_AMAX
-        combined.angle_increment = COMBINED_AINC
-        combined.time_increment  = 0.0
-        combined.scan_time       = self._loop_dt
-        combined.range_min       = self._range_min
-        combined.range_max       = self._range_max
-        combined.ranges          = combined_ranges
-        self._scan_pub.publish(combined)
+        msg = LaserScan()
+        msg.header.stamp    = now
+        msg.header.frame_id = 'base_link'
+        msg.angle_min       = COMBINED_AMIN
+        msg.angle_max       = COMBINED_AMAX
+        msg.angle_increment = COMBINED_AINC
+        msg.time_increment  = 0.0
+        msg.scan_time       = self._loop_dt
+        msg.range_min       = self._range_min
+        msg.range_max       = self._range_max
+        msg.ranges          = ranges
+        self._scan_pub.publish(msg)
 
     def destroy_node(self):
         if hasattr(self, '_scanner'):
