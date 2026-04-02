@@ -1,0 +1,42 @@
+motor_node:
+  ros__parameters:
+    # Hardware
+    gpio_mode: "BCM"          # Pin numbering mode (BCM = processor pins)
+    pins.IN1_L: 6             # Left motor: PWM forward
+    pins.IN2_L: 5             # Left motor: PWM backward
+    pins.IN1_R: 13            # Right motor: PWM forward
+    pins.IN2_R: 19            # Right motor: PWM backward
+    pwm_freq: 1000            # PWM frequency in Hz
+    duty_min: 0.0             # Minimum duty cycle
+    duty_max: 100.0           # Maximum duty cycle (full power)
+
+    # Kinematics
+    wheel_base: 0.086         # Distance between wheel centers (m)
+    v_max_mps: 0.08           # Maximum linear velocity (m/s)
+    w_max_rps: 2.50           # Maximum angular velocity (rad/s)
+
+    # PWM mapping
+    pwm_min: 25.0             # Minimum duty where wheels actually move
+    pwm_max: 90.0             # Upper duty limit
+    deadband: 0.03            # Ignore |v| < 0.03 m/s (noise)
+    cmd_timeout_s: 0.3        # Stop motors if no cmd_vel received (s)
+
+control_node:
+  ros__parameters:
+    front_indices: [2, 3, 4]  # NW, N, NE indices in /scan
+
+    v_max_mps: 0.08           # Maximum linear velocity (m/s)
+    w_max_rps: 2.50           # Maximum angular velocity (rad/s)
+
+    # Proportional controller gains
+    kp_linear: 0.0015         # Linear gain (pixel error → PWM)
+    kp_angular: 1.0           # Angular gain (degree error → PWM)
+
+    # Robot orientation
+    front_angle_deg: 0        # Angle representing robot front in image
+
+    # Safety thresholds
+    distance_stop_px: 50      # Stop if target closer than 50 px
+    obstacle_stop_cm: 15      # Obstacle avoidance distance (cm)
+    sensor_max_cm: 40.0
+    clear_needed: 3
