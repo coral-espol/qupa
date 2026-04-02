@@ -50,18 +50,18 @@ SENSOR_MAP = [
 KEEP_CHANNELS = [ch for ch, _, _ in SENSOR_MAP]
 
 # Combined LaserScan layout — 8 slots, 45° each, frame = base_link
-# Physical board is rotated -90° relative to base_link → +90° correction on every channel.
-# Slot index = angle / 45°;  missing directions (45°/NE, 315°) → inf
+# Physical board is rotated -90° relative to base_link → -90° correction on every channel.
+# Slot index = angle / 45°;  missing directions (135°/NW, 225°) → inf
 #   idx  angle  direction  channel
-#    0    0°      E          1
-#    1   45°      NE         —  (no sensor)
-#    2   90°      N          7
-#    3  135°      NW         6
-#    4  180°      W          5
-#    5  225°      —          3
-#    6  270°      S          2
-#    7  315°      —          —  (no sensor)
-CHANNEL_TO_SLOT = {1: 0, 7: 2, 6: 3, 5: 4, 3: 5, 2: 6}
+#    0    0°      E          5
+#    1   45°      NE         3
+#    2   90°      N          2
+#    3  135°      NW         —  (no sensor)
+#    4  180°      W          1
+#    5  225°      —          —  (no sensor)
+#    6  270°      S          7
+#    7  315°      —          6
+CHANNEL_TO_SLOT = {5: 0, 3: 1, 2: 2, 1: 4, 7: 6, 6: 7}
 COMBINED_SLOTS  = 8
 COMBINED_AMIN   = 0.0
 COMBINED_AINC   = math.pi / 4          # 45°
