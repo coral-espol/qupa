@@ -237,8 +237,7 @@ class CameraNode(Node):
     # ── Timer callback ────────────────────────────────────────────────────────
 
     def _timer_cb(self):
-        frame = self._cam.capture_array('main')  # RGB888
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        frame = self._cam.capture_array('main')  # RGB888 — mantenemos RGB
 
         now = self.get_clock().now().to_msg()
 
