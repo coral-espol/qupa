@@ -20,6 +20,13 @@ import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage, Image
 
+try:
+    from picamera2 import Picamera2
+    from libcamera import Transform
+    _PICAMERA2 = True
+except ImportError:
+    _PICAMERA2 = False
+
 PUBLISH_HZ = 5.0
 
 
@@ -169,18 +176,22 @@ class CameraNode(Node):
         self._ring     = ring
         self._ring_roi = ring[y0:y1, x0:x1]
 
-        # ── Camera (OpenCV V4L2) ──────────────────────────────────────────────
-        device = self.get_parameter('video_device').value
-        self._cap = cv2.VideoCapture(device, cv2.CAP_V4L2)
-        self._cap.set(cv2.CAP_PROP_FRAME_WIDTH,  W)
-        self._cap.set(cv2.CAP_PROP_FRAME_HEIGHT, H)
-
-        if not self._cap.isOpened():
-            self.get_logger().error(f'Cannot open /dev/video{device}.')
+        # ── Camera (picamera2) ───────────────────────────────────────────────
+        if not _PICAMERA2:
+            self.get_logger().error('picamera2 not found — cannot open camera.')
             return
+
+        self._cam = Picamera2()
+        cfg = self._cam.create_video_configuration(
+            main={'size': (W, H), 'format': 'RGB888'},
+            transform=Transform(hflip=0, vflip=1 if self._vflip else 0),
+        )
+        self._cam.configure(cfg)
+        self._cam.start()
 
         self.get_logger().info(f'Camera warming up for {warmup_s} s …')
         time.sleep(warmup_s)
+        self._cam.set_controls({'AwbEnable': True, 'AeEnable': True})
 
         # ── Publishers ───────────────────────────────────────────────────────
         self._pub_flt = self.create_publisher(
@@ -224,13 +235,8 @@ class CameraNode(Node):
     # ── Timer callback ────────────────────────────────────────────────────────
 
     def _timer_cb(self):
-        ret, frame = self._cap.read()
-        if not ret:
-            self.get_logger().warn('Frame capture failed — skipping.')
-            return
-
-        if self._vflip:
-            frame = cv2.flip(frame, 0)
+        frame = self._cam.capture_array('main')  # RGB888
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
 
         now = self.get_clock().now().to_msg()
 
@@ -277,8 +283,8 @@ class CameraNode(Node):
         self._pub_flt.publish(self._to_compressed(annotated, now))
 
     def destroy_node(self):
-        if hasattr(self, '_cap'):
-            self._cap.release()
+        if hasattr(self, '_cam'):
+            self._cam.stop()
         super().destroy_node()
 
 
