@@ -1,15 +1,22 @@
+import os
+import yaml
+
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
-import os
 
 
 def generate_launch_description():
-    pkg = get_package_share_directory('qupa_hardware')
+    pkg     = get_package_share_directory('qupa_hardware')
     cam_cfg = os.path.join(pkg, 'config', 'camera.yaml')
+
+    # Read camera_node params once — shared with calibration node so there
+    # is a single source of truth for ring mask and HSV values.
+    with open(cam_cfg, 'r') as f:
+        shared_params = yaml.safe_load(f)['camera_node']['ros__parameters']
 
     return LaunchDescription([
 
@@ -18,9 +25,6 @@ def generate_launch_description():
             description='Launch calibration node for RViz-based mask/HSV tuning'
         ),
 
-        # Main camera — 5 Hz
-        # Publishes: camera/image_filtered/compressed  (always, JPEG ~30-50 KB/frame)
-        #            camera/image_raw                  (only when publish_raw: true)
         Node(
             package='qupa_hardware',
             executable='camera',
@@ -29,21 +33,17 @@ def generate_launch_description():
             output='screen',
             parameters=[
                 cam_cfg,
-                # Enable raw topic when calibration node is active
                 {'publish_raw': LaunchConfiguration('calibration')},
             ],
         ),
 
-        # Calibration — only launched when calibration:=true
-        # Subscribes to image_raw (local loopback), publishes image_calibration/compressed
-        # Tune live: ros2 param set /qupa_3A/camera_calibration_node inner_radius_px 70
         Node(
             package='qupa_hardware',
             executable='camera_calibration',
             name='camera_calibration_node',
             namespace='qupa_3A',
             output='screen',
-            parameters=[cam_cfg],
+            parameters=[shared_params],
             condition=IfCondition(LaunchConfiguration('calibration')),
         ),
 
