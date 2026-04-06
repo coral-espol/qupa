@@ -11,23 +11,23 @@ camera_node:
 
     # Ring mask — inner dead zone
     inner_radius_px: 64
-    inner_offset_x:  -4
-    inner_offset_y:  -38
+    inner_offset_x:  -18
+    inner_offset_y:  -14
 
     # Ring mask — outer vision limit
     outer_radius_px: 110
-    outer_offset_x:  -4
-    outer_offset_y:  -38
+    outer_offset_x:  -18
+    outer_offset_y:  14
 
     # Pole line exclusion masks (pixel coords, pairs define a filled quad)
     pole_line1_p1: [0,   150]
     pole_line1_p2: [250, 190]
     pole_line2_p1: [0,   240]
     pole_line2_p2: [250, 210]
-    pole_line3_p1: [100, 0]
-    pole_line3_p2: [180, 480]
-    pole_line4_p1: [140, 0]
-    pole_line4_p2: [220, 480]
+    pole_line3_p1: [640, 150]
+    pole_line3_p2: [320, 190]
+    pole_line4_p1: [640, 240]
+    pole_line4_p2: [320, 210]
 
     # Detection
     min_area: 50

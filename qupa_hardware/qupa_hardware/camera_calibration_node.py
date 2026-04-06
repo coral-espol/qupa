@@ -12,6 +12,8 @@ Tune parameters live — mask rebuilds immediately, no restart needed:
     ros2 param set /qupa_3A/camera_calibration_node color_blue_lower "[100,90,70]"
 """
 
+import math
+
 import cv2
 import numpy as np
 import rclpy
@@ -115,6 +117,8 @@ class CameraCalibrationNode(Node):
         self._co = (int(cx + ox_out), int(cy + oy_out))
         self._r_in  = r_in
         self._r_out = r_out
+        self._ox_in = ox_in
+        self._oy_in = oy_in
 
         outer = _circular_mask(H, W, (cx + ox_out, cy + oy_out), r_out)
         inner = _circular_mask(H, W, (cx + ox_in,  cy + oy_in),  r_in, invert=True)
@@ -168,20 +172,47 @@ class CameraCalibrationNode(Node):
             cv2.line(out, p1, p2, (0, 165, 255), 2)
             cv2.line(out, p3, p4, (0, 165, 255), 2)
 
-        # Colour detection — draw bounding rectangles
-        hsv = cv2.cvtColor(out, cv2.COLOR_BGR2HSV)
+        # Colour detection — draw bounding rectangles + orientation vector
+        hsv = cv2.cvtColor(out, cv2.COLOR_RGB2HSV)
         k   = np.ones((3, 3), np.uint8)
+        best, best_area = None, 0
         for name, (lower, upper, col) in self._colors.items():
             cm = cv2.inRange(hsv, lower, upper)
             cm = cv2.morphologyEx(cm, cv2.MORPH_OPEN,  k)
             cm = cv2.morphologyEx(cm, cv2.MORPH_CLOSE, k)
             cnts, _ = cv2.findContours(cm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             for cnt in cnts:
-                if cv2.contourArea(cnt) >= self._min_area:
+                area = cv2.contourArea(cnt)
+                if area >= self._min_area:
                     x, y, w, h = cv2.boundingRect(cnt)
                     cv2.rectangle(out, (x, y), (x + w, y + h), col, 2)
                     cv2.putText(out, name, (x, y - 5),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, col, 1)
+                    if area > best_area:
+                        best_area = area
+                        M = cv2.moments(cnt)
+                        if M['m00'] > 1e-9:
+                            cx_b = int(M['m10'] / M['m00'])
+                            cy_b = int(M['m01'] / M['m00'])
+                        else:
+                            cx_b = x + w // 2
+                            cy_b = y + h // 2
+                        best = (cx_b, cy_b, col, name)
+
+        if best is not None:
+            cx_b, cy_b, col, name = best
+            x0 = (self._W - 1) / 2.0 + self._ox_in
+            y0_o = (self._H - 1) / 2.0 + self._oy_in
+            vx = float(cx_b - x0)
+            vy = float(cy_b - y0_o)
+            theta = math.degrees(math.atan2(vx, -vy))
+            dist  = math.hypot(vx, vy)
+            cv2.arrowedLine(out, (int(x0), int(y0_o)),
+                            (int(x0 + vx), int(y0_o + vy)),
+                            (0, 255, 255), 2, tipLength=0.2)
+            cv2.putText(out, f'{name} D:{dist:.0f}px E:{theta:.1f}deg',
+                        (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
+                        (0, 255, 255), 2)
 
         # Publish as compressed JPEG
         _, buf = cv2.imencode('.jpg', out,

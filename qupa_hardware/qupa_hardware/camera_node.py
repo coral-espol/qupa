@@ -204,11 +204,69 @@ class CameraNode(Node):
         ) if self._publish_raw else None
 
         self._timer = self.create_timer(1.0 / publish_hz, self._timer_cb)
+        self.add_on_set_parameters_callback(self._on_params)
         raw_note = ' + image_raw (local)' if self._publish_raw else ''
         self.get_logger().info(
             f'Camera node ready — {W}×{H} @ {publish_hz:.0f} Hz | '
             f'JPEG q={self._quality}{raw_note}'
         )
+
+    # ── Parameter callback ────────────────────────────────────────────────────
+
+    def _on_params(self, params):
+        rebuild = False
+        for p in params:
+            if p.name in ('inner_offset_x', 'inner_offset_y',
+                          'inner_radius_px', 'outer_radius_px',
+                          'outer_offset_x', 'outer_offset_y',
+                          'pole_line1_p1', 'pole_line1_p2',
+                          'pole_line2_p1', 'pole_line2_p2',
+                          'pole_line3_p1', 'pole_line3_p2',
+                          'pole_line4_p1', 'pole_line4_p2'):
+                rebuild = True
+            elif p.name == 'inner_offset_x':
+                self._inner_off_x = p.value
+            elif p.name == 'inner_offset_y':
+                self._inner_off_y = p.value
+            elif p.name == 'jpeg_quality':
+                self._quality = p.value
+        if rebuild:
+            self._rebuild_mask()
+        return rclpy.node.SetParametersResult(successful=True)
+
+    def _rebuild_mask(self):
+        W, H = self._W, self._H
+        cx, cy = W / 2.0, H / 2.0
+        r_in   = self.get_parameter('inner_radius_px').value
+        ox_in  = self.get_parameter('inner_offset_x').value
+        oy_in  = self.get_parameter('inner_offset_y').value
+        r_out  = self.get_parameter('outer_radius_px').value
+        ox_out = self.get_parameter('outer_offset_x').value
+        oy_out = self.get_parameter('outer_offset_y').value
+
+        self._inner_off_x = ox_in
+        self._inner_off_y = oy_in
+
+        outer = _circular_mask(H, W, (cx + ox_out, cy + oy_out), r_out)
+        inner = _circular_mask(H, W, (cx + ox_in,  cy + oy_in),  r_in, invert=True)
+        ring  = cv2.bitwise_and(outer, inner)
+
+        def _p(n): return tuple(self.get_parameter(n).value)
+        for pa, pb, pc, pd in [('pole_line1_p1', 'pole_line1_p2',
+                                 'pole_line2_p1', 'pole_line2_p2'),
+                                ('pole_line3_p1', 'pole_line3_p2',
+                                 'pole_line4_p1', 'pole_line4_p2')]:
+            excl = _between_lines_mask(H, W, _p(pa), _p(pb), _p(pc), _p(pd))
+            ring = cv2.bitwise_and(ring, cv2.bitwise_not(excl))
+
+        bb = _bbox_from_mask(ring)
+        if bb is None:
+            self.get_logger().error('Ring mask is empty — check mask parameters.')
+            return
+        x0, y0, x1, y1 = bb
+        self._roi      = (x0, y0, x1, y1)
+        self._ring     = ring
+        self._ring_roi = ring[y0:y1, x0:x1]
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -228,7 +286,7 @@ class CameraNode(Node):
         msg.header.frame_id = 'mirror_link'
         msg.height          = frame.shape[0]
         msg.width           = frame.shape[1]
-        msg.encoding        = 'bgr8'
+        msg.encoding        = 'rgb8'
         msg.is_bigendian    = 0
         msg.step            = frame.shape[1] * 3
         msg.data            = frame.tobytes()
@@ -237,7 +295,7 @@ class CameraNode(Node):
     # ── Timer callback ────────────────────────────────────────────────────────
 
     def _timer_cb(self):
-        frame = self._cam.capture_array('main')  # RGB888 — mantenemos RGB
+        frame = self._cam.capture_array('main')  # RGB888
 
         now = self.get_clock().now().to_msg()
 
@@ -251,7 +309,7 @@ class CameraNode(Node):
 
         # Detect best colour target
         annotated = frame.copy()
-        hsv       = cv2.cvtColor(roi_masked, cv2.COLOR_BGR2HSV)
+        hsv       = cv2.cvtColor(roi_masked, cv2.COLOR_RGB2HSV)
         best, best_area = None, 0
 
         for name, (lower, upper, draw_col) in self._colors.items():
