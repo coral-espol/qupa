@@ -20,14 +20,14 @@ camera_node:
     outer_offset_y:  14
 
     # Pole line exclusion masks (pixel coords, pairs define a filled quad)
-    pole_line1_p1: [0,   170]
-    pole_line1_p2: [220, 210]
-    pole_line2_p1: [0,   240]
-    pole_line2_p2: [250, 210]
-    pole_line3_p1: [640, 150]
-    pole_line3_p2: [340, 190]
-    pole_line4_p1: [640, 240]
-    pole_line4_p2: [340, 210]
+    pole_line1_p1: [0,   185]
+    pole_line1_p2: [220, 215]
+    pole_line2_p1: [0,   255]
+    pole_line2_p2: [220, 245]
+    pole_line3_p1: [640, 185]
+    pole_line3_p2: [420, 215]
+    pole_line4_p1: [640, 255]
+    pole_line4_p2: [420, 245]
 
     # Detection
     min_area: 50
