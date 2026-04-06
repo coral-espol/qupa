@@ -214,8 +214,8 @@ class CameraCalibrationNode(Node):
                         (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
                         (0, 255, 255), 2)
 
-        # Publish as compressed JPEG
-        _, buf = cv2.imencode('.jpg', out,
+        # Publish as compressed JPEG (imencode expects BGR)
+        _, buf = cv2.imencode('.jpg', cv2.cvtColor(out, cv2.COLOR_RGB2BGR),
                               [cv2.IMWRITE_JPEG_QUALITY, self._quality])
         pub_msg = CompressedImage()
         pub_msg.header.stamp    = msg.header.stamp

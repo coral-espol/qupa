@@ -275,7 +275,7 @@ class CameraNode(Node):
         msg.header.stamp = stamp
         msg.header.frame_id = 'mirror_link'
         msg.format = 'jpeg'
-        _, buf = cv2.imencode('.jpg', frame,
+        _, buf = cv2.imencode('.jpg', cv2.cvtColor(frame, cv2.COLOR_RGB2BGR),
                               [cv2.IMWRITE_JPEG_QUALITY, self._quality])
         msg.data = buf.tobytes()
         return msg
