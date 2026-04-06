@@ -27,7 +27,7 @@ try:
 except ImportError:
     _PICAMERA2 = False
 
-PUBLISH_HZ = 5.0
+PUBLISH_HZ_DEFAULT = 3.0
 
 
 # ── Mask helpers ──────────────────────────────────────────────────────────────
@@ -92,6 +92,7 @@ class CameraNode(Node):
         # ── Parameters ──
         self.declare_parameter('image_width',   640)
         self.declare_parameter('image_height',  480)
+        self.declare_parameter('publish_hz',    PUBLISH_HZ_DEFAULT)
         self.declare_parameter('warmup_s',      2.0)
         self.declare_parameter('vflip',         True)
         self.declare_parameter('jpeg_quality',  80)
@@ -125,6 +126,7 @@ class CameraNode(Node):
 
         W            = self.get_parameter('image_width').value
         H            = self.get_parameter('image_height').value
+        publish_hz   = self.get_parameter('publish_hz').value
         warmup_s     = self.get_parameter('warmup_s').value
         self._vflip       = self.get_parameter('vflip').value
         self._quality     = self.get_parameter('jpeg_quality').value
@@ -201,10 +203,10 @@ class CameraNode(Node):
             Image, 'camera/image_raw', 10
         ) if self._publish_raw else None
 
-        self._timer = self.create_timer(1.0 / PUBLISH_HZ, self._timer_cb)
+        self._timer = self.create_timer(1.0 / publish_hz, self._timer_cb)
         raw_note = ' + image_raw (local)' if self._publish_raw else ''
         self.get_logger().info(
-            f'Camera node ready — {W}×{H} @ {PUBLISH_HZ:.0f} Hz | '
+            f'Camera node ready — {W}×{H} @ {publish_hz:.0f} Hz | '
             f'JPEG q={self._quality}{raw_note}'
         )
 
