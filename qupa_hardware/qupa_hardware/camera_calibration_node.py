@@ -150,18 +150,15 @@ class CameraCalibrationNode(Node):
     # ── Image callback ────────────────────────────────────────────────────────
 
     def _image_cb(self, msg: Image):
-        # Decode incoming raw Image manually (avoids cv_bridge dependency)
+        # Decode incoming raw Image (BGR8)
         frame = np.frombuffer(msg.data, dtype=np.uint8).reshape(
             msg.height, msg.width, 3
         )
-        out = frame.copy()
 
-        # Semi-transparent green mask overlay
-        overlay = np.zeros_like(out)
-        overlay[self._ring > 0] = (0, 200, 0)
-        out = cv2.addWeighted(out, 1.0, overlay, 0.25, 0)
+        # Apply ring mask — outside ring is black
+        out = cv2.bitwise_and(frame, frame, mask=self._ring)
 
-        # Circles and centre marker
+        # Outer and inner ring circles
         cv2.circle(out, self._co, self._r_out, (0, 255, 255), 2)
         cv2.circle(out, self._ci, self._r_in,  (255, 0, 255), 2)
         cv2.drawMarker(out, self._ci, (255, 255, 255), cv2.MARKER_CROSS, 20, 2)
@@ -171,10 +168,9 @@ class CameraCalibrationNode(Node):
             cv2.line(out, p1, p2, (0, 165, 255), 2)
             cv2.line(out, p3, p4, (0, 165, 255), 2)
 
-        # Colour contours from HSV segmentation
-        masked = cv2.bitwise_and(frame, frame, mask=self._ring)
-        hsv    = cv2.cvtColor(masked, cv2.COLOR_BGR2HSV)
-        k      = np.ones((3, 3), np.uint8)
+        # Colour detection — draw bounding rectangles
+        hsv = cv2.cvtColor(out, cv2.COLOR_BGR2HSV)
+        k   = np.ones((3, 3), np.uint8)
         for name, (lower, upper, col) in self._colors.items():
             cm = cv2.inRange(hsv, lower, upper)
             cm = cv2.morphologyEx(cm, cv2.MORPH_OPEN,  k)
@@ -182,16 +178,17 @@ class CameraCalibrationNode(Node):
             cnts, _ = cv2.findContours(cm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             for cnt in cnts:
                 if cv2.contourArea(cnt) >= self._min_area:
-                    cv2.drawContours(out, [cnt], -1, col, 2)
-                    x, y, *_ = cv2.boundingRect(cnt)
+                    x, y, w, h = cv2.boundingRect(cnt)
+                    cv2.rectangle(out, (x, y), (x + w, y + h), col, 2)
                     cv2.putText(out, name, (x, y - 5),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, col, 1)
 
-        # Publish as compressed image
+        # Publish as compressed JPEG
         _, buf = cv2.imencode('.jpg', out,
                               [cv2.IMWRITE_JPEG_QUALITY, self._quality])
         pub_msg = CompressedImage()
-        pub_msg.header = msg.header
+        pub_msg.header.stamp    = msg.header.stamp
+        pub_msg.header.frame_id = 'mirror_link'
         pub_msg.format = 'jpeg'
         pub_msg.data   = buf.tobytes()
         self._pub.publish(pub_msg)
