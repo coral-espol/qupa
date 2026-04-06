@@ -173,7 +173,7 @@ class CameraCalibrationNode(Node):
             cv2.line(out, p3, p4, (0, 165, 255), 2)
 
         # Colour detection — draw bounding rectangles + orientation vector
-        hsv = cv2.cvtColor(out, cv2.COLOR_RGB2HSV)
+        hsv = cv2.cvtColor(out, cv2.COLOR_BGR2HSV)
         k   = np.ones((3, 3), np.uint8)
         best, best_area = None, 0
         for name, (lower, upper, col) in self._colors.items():
@@ -214,8 +214,8 @@ class CameraCalibrationNode(Node):
                         (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
                         (0, 255, 255), 2)
 
-        # Publish as compressed JPEG (imencode expects BGR)
-        _, buf = cv2.imencode('.jpg', cv2.cvtColor(out, cv2.COLOR_RGB2BGR),
+        # Publish as compressed JPEG
+        _, buf = cv2.imencode('.jpg', out,
                               [cv2.IMWRITE_JPEG_QUALITY, self._quality])
         pub_msg = CompressedImage()
         pub_msg.header.stamp    = msg.header.stamp

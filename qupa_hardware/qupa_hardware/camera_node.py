@@ -275,7 +275,7 @@ class CameraNode(Node):
         msg.header.stamp = stamp
         msg.header.frame_id = 'mirror_link'
         msg.format = 'jpeg'
-        _, buf = cv2.imencode('.jpg', cv2.cvtColor(frame, cv2.COLOR_RGB2BGR),
+        _, buf = cv2.imencode('.jpg', frame,
                               [cv2.IMWRITE_JPEG_QUALITY, self._quality])
         msg.data = buf.tobytes()
         return msg
@@ -289,13 +289,13 @@ class CameraNode(Node):
         msg.encoding        = 'rgb8'
         msg.is_bigendian    = 0
         msg.step            = frame.shape[1] * 3
-        msg.data            = frame.tobytes()
+        msg.data            = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB).tobytes()
         return msg
 
     # ── Timer callback ────────────────────────────────────────────────────────
 
     def _timer_cb(self):
-        frame = self._cam.capture_array('main')  # RGB888
+        frame = self._cam.capture_array('main')  # RGB888 → BGR data (picamera2 OpenCV convention)
 
         now = self.get_clock().now().to_msg()
 
@@ -309,7 +309,7 @@ class CameraNode(Node):
 
         # Detect best colour target
         annotated = frame.copy()
-        hsv       = cv2.cvtColor(roi_masked, cv2.COLOR_RGB2HSV)
+        hsv       = cv2.cvtColor(roi_masked, cv2.COLOR_BGR2HSV)
         best, best_area = None, 0
 
         for name, (lower, upper, draw_col) in self._colors.items():
