@@ -17,39 +17,28 @@ Differential-drive robot with IR proximity sensing and colour-target detection v
 
 ---
 
-## Prerequisites
+## Setup
 
-### Robot (Raspberry Pi Zero W2)
+Full installation instructions are in **[docs/installation.md](docs/installation.md)**.
+
+Camera setup requires building the Raspberry Pi libcamera fork due to a known Ubuntu 24.04 bug with the OV5647 sensor — see **[docs/camera_setup.md](docs/camera_setup.md)**.
+
+### Quick summary
 
 ```bash
+# Robot
 sudo apt install ros-jazzy-ros-base python3-rpi-lgpio python3-opencv
-pip install picamera2
-```
+sudo pip install picamera2 --break-system-packages
+# + build libcamera RPi fork — see docs/camera_setup.md
 
-### PC / WSL2
+# PC / WSL2
+sudo apt install ros-jazzy-desktop ros-jazzy-joint-state-publisher \
+  ros-jazzy-image-transport-plugins
 
-```bash
-sudo apt install ros-jazzy-desktop ros-jazzy-joint-state-publisher
-```
-
-**WSL2 only** — enable mirrored networking so DDS can reach the robot.
-Add to `C:\Users\<user>\.wslconfig`:
-```ini
-[wsl2]
-networkingMode=mirrored
-```
-Then run `wsl --shutdown` from PowerShell and reopen WSL.
-
----
-
-## Workspace setup
-
-```bash
+# Workspace (both)
 mkdir -p ~/qupa_ws/src && cd ~/qupa_ws/src
 git clone <repo-url> qupa
-cd ~/qupa_ws
-colcon build
-source install/setup.bash
+cd ~/qupa_ws && colcon build && source install/setup.bash
 ```
 
 ---
@@ -212,6 +201,8 @@ ir_scanner:
 |---|---|---|
 | `RPi.GPIO not found` | Wrong GPIO library for Ubuntu | `sudo apt install python3-rpi-lgpio` |
 | `No module named 'cv2'` | OpenCV missing | `sudo apt install python3-opencv` |
+| `assertion "it != buffers_.end()"` | libcamera 0.2.0 bug with OV5647 | Build RPi libcamera fork — see [docs/camera_setup.md](docs/camera_setup.md) |
+| Camera image black / hangs | picamera2 using system libcamera | Check `ldconfig -p \| grep libcamera` — v0.7 must have priority |
 | Topics not visible across machines | DDS discovery | Source env files on both sides; check `ROS_STATIC_PEERS` IPs |
 | Launch file not found after build | File not synced before build | `git pull` on robot, then `colcon build` |
 | Motors stop immediately | Watchdog timeout | Publish `cmd_vel` at ≥ 4 Hz (timeout = 0.3 s) |
