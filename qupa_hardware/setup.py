@@ -26,10 +26,12 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'ir_scanner    = qupa_hardware.ir_scanner_node:main',
+            'ir_scanner         = qupa_hardware.ir_scanner_node:main',
             'motor_driver       = qupa_hardware.motor_driver_node:main',
             'camera             = qupa_hardware.camera_node:main',
             'camera_calibration = qupa_hardware.camera_calibration_node:main',
+            'floor_sensor       = qupa_hardware.floor_sensor_node:main',
+            'led                = qupa_hardware.led_node:main',
         ],
     },
 )

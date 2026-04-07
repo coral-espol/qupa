@@ -1,0 +1,12 @@
+led_node:
+  ros__parameters:
+    led_count:         24
+    global_brightness: 10
+
+    # Segment index ranges (inclusive)
+    seg0_from:  0
+    seg0_to:    7
+    seg1_from:  8
+    seg1_to:    16
+    seg2_from:  17
+    seg2_to:    23
