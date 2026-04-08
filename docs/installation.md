@@ -11,6 +11,22 @@ Full setup for the robot (Raspberry Pi Zero W2, Ubuntu 24.04 Server) and the dev
 Ubuntu 24.04 Server (arm64) on Raspberry Pi Zero W2.  
 Flash with Raspberry Pi Imager, enable SSH, set hostname `qupa`, user `qupa`.
 
+#### Check dates and Add developer repository
+
+Adding resource repository to list
+```bash
+echo "Types: deb
+URIs: http://ports.ubuntu.com/ubuntu-ports/
+Suites: noble-updates
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg" | sudo tee -a /etc/apt/sources.list.d/ubuntu.sources
+```
+
+Update and Upgrade
+```bash
+sudo apt update && sudo apt upgrade -y 
+``` 
+
 ### 2. ROS2 Jazzy
 
 ```bash
