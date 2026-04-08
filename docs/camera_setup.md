@@ -116,6 +116,18 @@ A non-zero mean value (e.g. `mean: 120.5`) confirms the camera is working correc
 
 ---
 
+## Colour pipeline
+
+picamera2 with format `RGB888` returns frames in **BGR byte order** (OpenCV convention). The correct pipeline throughout is:
+
+```
+capture_array()  →  BGR frame
+                 →  cv2.COLOR_BGR2HSV   (colour detection)
+                 →  cv2.imencode('.jpg', frame)   (JPEG — expects BGR, correct output)
+```
+
+Do **not** convert to RGB before calling `imencode` or before HSV conversion — this swaps the red and blue channels in both detection and the published image.
+
 ## Notes
 
 - The system libcamera (0.2.0) remains installed at `/lib/aarch64-linux-gnu/` — it is not removed, only deprioritized via `ld.so.conf.d`.

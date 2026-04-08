@@ -29,6 +29,13 @@ sudo apt update && sudo apt install -y ros-jazzy-ros-base
 sudo apt install -y python3-rpi-lgpio python3-opencv python3-pip
 ```
 
+Enable I2C and SPI (required for floor sensor and LED strip):
+
+```bash
+sudo raspi-config nonint do_i2c 0
+sudo raspi-config nonint do_spi 0
+```
+
 ### 4. Camera — libcamera RPi fork
 
 Ubuntu 24.04 ships libcamera 0.2.0, which has a known bug (`prepareIsp()` assertion failure) with the OV5647 sensor (RPi Camera Module v1). The official Raspberry Pi fork fixes this.
@@ -49,7 +56,37 @@ echo "/usr/local/lib/python3/dist-packages" | \
   sudo tee /usr/local/lib/python3.12/dist-packages/libcamera-new.pth
 ```
 
-### 6. Workspace
+### 6. Floor colour sensor (TCS34725)
+
+The sensor communicates over I2C (I2C bus 1 by default).
+
+```bash
+sudo pip install adafruit-circuitpython-tcs34725 --break-system-packages
+```
+
+Verify the sensor is wired correctly and detected:
+
+```bash
+i2cdetect -y 1
+# Should show address 0x29
+```
+
+### 7. LED strip (APA102)
+
+The strip communicates over SPI (hardware SPI0, CE0).
+
+```bash
+sudo pip install apa102-pi --break-system-packages
+```
+
+Verify SPI is available:
+
+```bash
+ls /dev/spidev0.*
+# Should show /dev/spidev0.0
+```
+
+### 8. Workspace
 
 ```bash
 mkdir -p ~/qupa_ws/src && cd ~/qupa_ws/src
@@ -61,7 +98,7 @@ echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 echo "source ~/qupa_ws/install/setup.bash" >> ~/.bashrc
 ```
 
-### 7. DDS environment
+### 9. DDS environment
 
 ```bash
 source ~/qupa_ws/src/qupa/ros2_env_robot.bash

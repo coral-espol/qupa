@@ -11,7 +11,9 @@ Differential-drive robot with IR proximity sensing and colour-target detection v
 | Compute | Raspberry Pi Zero W2 — Ubuntu 24.04 Server |
 | Motors | 2× DC motors, GPIO PWM (BCM) |
 | IR sensors | 6× GP2Y0E03 via TCA9548A I2C multiplexer |
-| Camera | Raspberry Pi Camera (picamera2, 640×480) |
+| Camera | Raspberry Pi Camera v1 — OV5647, picamera2, 640×480 |
+| Floor sensor | TCS34725 — RGB colour, I2C bus 1 (addr 0x29) |
+| LED strip | APA102 — 24 LEDs, hardware SPI0 |
 | PC / WSL2 | Ubuntu 24.04, ROS2 Jazzy — 192.168.0.111 |
 | Robot IP | 192.168.0.120 |
 
@@ -28,7 +30,8 @@ Camera setup requires building the Raspberry Pi libcamera fork due to a known Ub
 ```bash
 # Robot
 sudo apt install ros-jazzy-ros-base python3-rpi-lgpio python3-opencv
-sudo pip install picamera2 --break-system-packages
+sudo pip install picamera2 adafruit-circuitpython-tcs34725 apa102-pi \
+  --break-system-packages
 # + build libcamera RPi fork — see docs/camera_setup.md
 
 # PC / WSL2
@@ -63,10 +66,12 @@ source ~/qupa_ws/src/qupa/ros2_env_pc.bash
 
 ## Packages
 
-| Package | Purpose |
-|---|---|
-| `qupa_hardware` | Hardware drivers — IR scanner, motor driver, camera |
-| `qupa_description` | URDF/Xacro robot model for TF and visualisation |
+| Package | Machine | Purpose |
+|---|---|---|
+| `qupa_msgs` | both | Custom message definitions (`Detection`, `DetectionArray`) |
+| `qupa_hardware` | robot | Hardware drivers — IR scanner, motor driver, camera, floor sensor, LEDs |
+| `qupa_description` | both | URDF/Xacro robot model for TF and visualisation |
+| `qupa_desktop` | PC | RViz launch and configuration for visualisation |
 
 ---
 
@@ -75,20 +80,26 @@ source ~/qupa_ws/src/qupa/ros2_env_pc.bash
 ### Robot — full hardware stack
 
 ```bash
-# IR sensors + motor driver
+# IR sensors + motor driver + floor sensor + LEDs (sequential startup)
 ros2 launch qupa_hardware hardware.launch.py
 
-# Camera (normal operation)
+# Camera — detection only, no image stream (normal operation)
 ros2 launch qupa_hardware camera.launch.py
 
-# Camera + calibration node (for RViz tuning)
-ros2 launch qupa_hardware camera.launch.py calibration:=true
+# Camera — detection + calibration image stream (tuning mode)
+ros2 launch qupa_hardware camera_calibration.launch.py
 ```
 
-### PC — robot description (TF tree)
+The `namespace` argument selects the robot (default `qupa_3A`):
 
 ```bash
-ros2 launch qupa_description description.launch.py
+ros2 launch qupa_hardware camera.launch.py namespace:=qupa_3B
+```
+
+### PC — visualisation
+
+```bash
+ros2 launch qupa_desktop view.launch.py
 ```
 
 ---
@@ -99,8 +110,58 @@ ros2 launch qupa_description description.launch.py
 |---|---|---|---|---|
 | `/qupa_3A/scan` | `sensor_msgs/LaserScan` | robot → PC | 10 Hz | 8-slot scan (45° step, `base_link` frame) |
 | `/qupa_3A/cmd_vel` | `geometry_msgs/Twist` | PC → robot | on demand | Linear (m/s) + angular (rad/s) command |
-| `/qupa_3A/camera/image_filtered/compressed` | `sensor_msgs/CompressedImage` | robot → PC | 5 Hz | JPEG annotated frame (~30–50 KB) |
-| `/qupa_3A/camera/image_calibration/compressed` | `sensor_msgs/CompressedImage` | robot → PC | 5 Hz | Calibration overlay (calibration mode only) |
+| `/qupa_3A/camera/detections` | `qupa_msgs/DetectionArray` | robot → PC | 3 Hz | All colour blobs detected in the ring |
+| `/qupa_3A/camera/image_calibration/compressed` | `sensor_msgs/CompressedImage` | robot → PC | 3 Hz | Annotated JPEG for RViz (calibration mode only) |
+| `/qupa_3A/floor/color` | `std_msgs/String` | robot → PC | 5 Hz | JSON: `{"label": "CYAN", "hsv": [h, s, v]}` |
+| `/qupa_3A/leds/command` | `std_msgs/String` | PC → robot | on demand | JSON LED command (see LED section) |
+
+### DetectionArray message
+
+`qupa_msgs/DetectionArray` carries a `std_msgs/Header` and a list of `Detection` targets. Every blob found in the ring is reported — multiple detections of the same colour are possible.
+
+```
+# qupa_msgs/Detection
+string  color        # BLUE | GREEN | RED
+float32 distance_px  # distance from mirror centre in pixels
+float32 angle_deg    # angle in degrees (0 = front, clockwise positive)
+int32   area         # blob area in pixels²
+float32 cx           # centroid x in full image coordinates
+float32 cy           # centroid y in full image coordinates
+```
+
+Example — echo live detections:
+
+```bash
+ros2 topic echo /qupa_3A/camera/detections
+```
+
+### Floor sensor message
+
+`std_msgs/String` with a JSON payload:
+
+```json
+{"label": "CYAN", "hsv": [176.4, 0.82, 0.61]}
+```
+
+Possible labels: `CYAN`, `MAGENTA`, `YELLOW`, `UNKNOWN`.
+
+### LED command message
+
+`std_msgs/String` with a JSON payload. Supported modes:
+
+```bash
+# Set all LEDs to one colour
+ros2 topic pub --once /qupa_3A/leds/command std_msgs/msg/String \
+  '{"data": "{\"mode\": \"set_all\", \"rgb\": [0, 0, 255]}"}'
+
+# Set a specific range of LEDs
+ros2 topic pub --once /qupa_3A/leds/command std_msgs/msg/String \
+  '{"data": "{\"mode\": \"set_segment\", \"rgb\": [0, 255, 0], \"from\": 0, \"to\": 7}"}'
+
+# Clear (turn off all)
+ros2 topic pub --once /qupa_3A/leds/command std_msgs/msg/String \
+  '{"data": "{\"mode\": \"clear\"}"}'
+```
 
 ### LaserScan slot layout
 
@@ -139,11 +200,17 @@ ros2 topic pub --once /qupa_3A/cmd_vel geometry_msgs/msg/Twist "{}"
 
 ## RViz visualisation
 
+```bash
+# PC
+ros2 launch qupa_desktop view.launch.py
+```
+
+Or manually:
+
 1. Launch the description on the PC: `ros2 launch qupa_description description.launch.py`
 2. Open RViz2 and set **Fixed Frame** to `base_link`
 3. Add displays:
    - **LaserScan** → `/qupa_3A/scan` (Style: Points, Size: 0.05 m)
-   - **Image** → `/qupa_3A/camera/image_filtered/compressed`
    - **Image** → `/qupa_3A/camera/image_calibration/compressed` *(calibration mode only)*
    - **RobotModel** → to visualise the URDF
 
@@ -151,7 +218,9 @@ ros2 topic pub --once /qupa_3A/cmd_vel geometry_msgs/msg/Twist "{}"
 
 ## Camera calibration (live tuning)
 
-Launch with `calibration:=true`, then watch `/qupa_3A/camera/image_calibration/compressed` in RViz. Adjust parameters on the fly — the overlay updates immediately with no restart:
+`camera_node` and `camera_calibration_node` are **fully independent**: each opens its own camera instance. The calibration node publishes only the annotated JPEG; the camera node publishes only detections. They can run simultaneously without interfering.
+
+Launch calibration mode, then watch `/qupa_3A/camera/image_calibration/compressed` in RViz. Adjust parameters on the fly — the overlay updates immediately with no restart:
 
 ```bash
 # Mask geometry
@@ -167,6 +236,8 @@ ros2 param set /qupa_3A/camera_calibration_node color_blue_upper "[140, 255, 255
 ros2 param set /qupa_3A/camera_calibration_node min_area 80
 ```
 
+The overlay draws: outer ring (yellow), inner circle (magenta), pole exclusion lines (orange), bounding boxes per blob (colour-coded), and an orientation arrow from the inner circle centre to each detected centroid with distance and angle.
+
 Once satisfied, copy the values into `qupa_hardware/config/camera.yaml` and rebuild.
 
 ---
@@ -177,7 +248,9 @@ Once satisfied, copy the values into `qupa_hardware/config/camera.yaml` and rebu
 |---|---|---|
 | `config/ir_scanner.yaml` | `ir_scanner` | I2C addresses, sampling, loop rate (10 Hz), quadratic calibration coefficients |
 | `config/motor.yaml` | `motor_node` | GPIO pins, wheel base (0.086 m), v\_max (0.08 m/s), PWM range, watchdog timeout |
-| `config/camera.yaml` | `camera_node`, `camera_calibration_node` | Resolution, ring mask, pole exclusions, HSV ranges, JPEG quality |
+| `config/camera.yaml` | `camera_node`, `camera_calibration_node` | Resolution, ring mask, pole exclusions, HSV ranges, publish rate |
+| `config/floor_sensor.yaml` | `floor_sensor_node` | Loop rate, integration time, gain, HSV ranges per colour label |
+| `config/leds.yaml` | `led_node` | LED count, global brightness, named segment index ranges |
 
 ---
 
@@ -203,6 +276,11 @@ ir_scanner:
 | `No module named 'cv2'` | OpenCV missing | `sudo apt install python3-opencv` |
 | `assertion "it != buffers_.end()"` | libcamera 0.2.0 bug with OV5647 | Build RPi libcamera fork — see [docs/camera_setup.md](docs/camera_setup.md) |
 | Camera image black / hangs | picamera2 using system libcamera | Check `ldconfig -p \| grep libcamera` — v0.7 must have priority |
+| Camera colours look wrong (blue/red swapped) | Incorrect colour space conversion | picamera2 RGB888 returns BGR data; use `COLOR_BGR2HSV` and `imencode` directly without swapping |
+| `No module named 'adafruit_tcs34725'` | Floor sensor library not installed | `sudo pip install adafruit-circuitpython-tcs34725 --break-system-packages` |
+| Floor sensor not detected | I2C disabled or sensor not wired | Run `i2cdetect -y 1` — should show `0x29`; enable I2C with `raspi-config` |
+| `No module named 'apa102_pi'` | LED library not installed | `sudo pip install apa102-pi --break-system-packages` |
+| LED strip not responding | SPI disabled or wiring | Run `ls /dev/spidev0.*`; enable SPI with `raspi-config` |
 | Topics not visible across machines | DDS discovery | Source env files on both sides; check `ROS_STATIC_PEERS` IPs |
 | Launch file not found after build | File not synced before build | `git pull` on robot, then `colcon build` |
 | Motors stop immediately | Watchdog timeout | Publish `cmd_vel` at ≥ 4 Hz (timeout = 0.3 s) |
