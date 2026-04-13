@@ -163,13 +163,75 @@ meson setup build \
 ### Build and install
 
 ```bash
-meson compile -C build
+meson compile -C build -j 1
 sudo meson install -C build
 sudo ldconfig
+cd ~/
 ```
 
+### Patch DRM preview (Ubuntu 24.04 Server fix)
+
+
 ```bash
-cd ~
+sudo python3 - <<'EOF'
+import re, glob
+
+candidates = glob.glob("/usr/local/lib/python3.*/dist-packages/picamera2/previews/drm_preview.py")
+candidates += glob.glob("/usr/lib/python3/dist-packages/picamera2/previews/drm_preview.py")
+
+if not candidates:
+    print("ERROR: no se encontró drm_preview.py")
+    raise SystemExit(1)
+
+path = candidates[0]
+content = open(path).read()
+
+old_imports = """try:
+    import kms as pykms
+except ImportError:
+    import pykms"""
+
+mock_module = """try:
+    import kms as pykms
+except ImportError:
+    try:
+        import pykms
+    except ImportError:
+        from types import SimpleNamespace
+        pykms = SimpleNamespace(
+            PixelFormat=SimpleNamespace(**{f: 1 for f in [
+                'XRGB8888','XBGR8888','ARGB8888','RGB888','BGR888',
+                'YUYV','UYVY','NV12','YUV420','YVU420'
+            ]})
+        )"""
+
+if old_imports in content:
+    patched = content.replace(old_imports, mock_module)
+elif "import pykms" in content:
+    patched = content.replace("import pykms", mock_module, 1)
+else:
+    print("WARNING: patrón no reconocido, parcheando con regex")
+    patched = re.sub(r'^.*import.*pykms.*$', '# import pykms (patched out)', content, flags=re.MULTILINE)
+    patched = "from types import SimpleNamespace\npykms = SimpleNamespace(PixelFormat=SimpleNamespace(**{f:1 for f in ['XRGB8888','XBGR8888','ARGB8888','RGB888','BGR888','YUYV','UYVY','NV12','YUV420','YVU420']}))\n" + patched
+
+open(path, 'w').write(patched)
+print(f'Patched OK: {path}')
+EOF
+```
+
+### Verify
+
+
+```bash
+python3 -c "
+from picamera2 import Picamera2
+cam = Picamera2()
+cam.start()
+import time; time.sleep(2)
+f = cam.capture_array()
+print('OK — mean pixel value:', f.mean())
+cam.stop()
+"
 ```
 
 ---
@@ -181,16 +243,14 @@ sudo nano /boot/firmware/config.txt
 ```
 
 Add the overlay for the OV5647 sensor (Raspberry Pi Camera Module v1):
+```bash
+# For Camera Module 3
+dtoverlay=imx708
 
-```
-dtoverlay=ov5647
-```
-
-Other sensors for reference (not used here):
-```
-# dtoverlay=imx708   # Camera Module 3
-# dtoverlay=imx477   # HQ Camera
-# dtoverlay=imx519   # 16MP Camera
+# For other cameras, use:
+# dtoverlay=imx477  # HQ Camera
+# dtoverlay=imx296  # GS Camera
+# dtoverlay=imx519  # 16MP Camera
 ```
 
 Save with `Ctrl+X`, then `Y`, then `Enter`.
