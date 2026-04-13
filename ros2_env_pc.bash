@@ -12,6 +12,13 @@ source /opt/ros/jazzy/setup.bash
 
 export ROS_DOMAIN_ID=0
 export ROS_AUTOMATIC_DISCOVERY_RANGE=SUBNET
-export ROS_STATIC_PEERS=192.168.0.120
+# Static DDS peer list — add or remove IPs as robots/machines join the network.
+# Each entry is a machine that DDS will try to contact directly, bypassing
+# multicast discovery (required for WSL2 and cross-subnet setups).
+#
+#   192.168.0.120  — qupa_3A  (Raspberry Pi Zero W2, robot 1)
+#   192.168.0.105  — qupa_3B  (Raspberry Pi Zero W2, robot 2)
+#   192.168.0.122  — qupa_3C  (Raspberry Pi Zero W2, robot 3)
+export ROS_STATIC_PEERS="192.168.0.120;192.168.0.105;192.168.0.122"
 
 echo "[ROS2 PC/WSL2] Jazzy sourced — IP=${ROS_IP}, DOMAIN_ID=${ROS_DOMAIN_ID}"
