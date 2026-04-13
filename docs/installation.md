@@ -72,6 +72,22 @@ echo "/usr/local/lib/python3/dist-packages" | \
   sudo tee /usr/local/lib/python3.12/dist-packages/libcamera-new.pth
 ```
 
+#### Patch DRM preview (Ubuntu 24.04 Server fix)
+
+On Ubuntu 24.04 Server the `pykms` library is not available. Without this patch, picamera2 crashes with `AttributeError: 'NoneType' object has no attribute 'PixelFormat'` when initialising the DRM preview backend. The patch replaces the missing pixel format constants with a harmless placeholder so the library loads correctly in headless mode.
+
+```bash
+python3 - <<'EOF'
+import re, picamera2, os
+
+path = os.path.join(os.path.dirname(picamera2.__file__), 'previews', 'drm_preview.py')
+content = open(path).read()
+patched = re.sub(r'pykms\.PixelFormat\.\w+', '1', content)
+open(path, 'w').write(patched)
+print(f'Patched: {path}')
+EOF
+```
+
 ### 6. Floor colour sensor (TCS34725)
 
 The sensor communicates over I2C (I2C bus 1 by default).
