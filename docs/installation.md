@@ -36,6 +36,7 @@ sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key \
 echo "deb [arch=arm64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] \
   http://packages.ros.org/ros2/ubuntu noble main" \
   | sudo tee /etc/apt/sources.list.d/ros2.list
+sudo apt update && sudo apt install ros-dev-tools
 sudo apt update && sudo apt install -y ros-jazzy-ros-base
 ```
 
@@ -58,21 +59,7 @@ Ubuntu 24.04 ships libcamera 0.2.0, which has a known bug (`prepareIsp()` assert
 
 See **[camera_setup.md](camera_setup.md)** for the full build instructions.
 
-### 5. picamera2
-
-```bash
-sudo apt install -y libcap-dev
-sudo pip install picamera2 --break-system-packages
-```
-
-Add the libcamera Python bindings to the Python path:
-
-```bash
-echo "/usr/local/lib/python3/dist-packages" | \
-  sudo tee /usr/local/lib/python3.12/dist-packages/libcamera-new.pth
-```
-
-### 6. Floor colour sensor (TCS34725)
+### 5. Floor colour sensor (TCS34725)
 
 The sensor communicates over I2C (I2C bus 1 by default).
 
@@ -87,11 +74,12 @@ i2cdetect -y 1
 # Should show address 0x29
 ```
 
-### 7. LED strip (APA102)
+### 6. LED strip (APA102)
 
 The strip communicates over SPI (hardware SPI0, CE0).
 
 ```bash
+sudo apt install i2c-tools
 sudo pip install apa102-pi --break-system-packages
 ```
 
@@ -102,7 +90,7 @@ ls /dev/spidev0.*
 # Should show /dev/spidev0.0
 ```
 
-### 8. Workspace
+### 7. Workspace
 
 ```bash
 mkdir -p ~/qupa_ws/src && cd ~/qupa_ws/src
@@ -114,7 +102,7 @@ echo "source /opt/ros/jazzy/setup.bash" >> ~/.bashrc
 echo "source ~/qupa_ws/install/setup.bash" >> ~/.bashrc
 ```
 
-### 9. DDS environment
+### 8. DDS environment
 
 ```bash
 source ~/qupa_ws/src/qupa/ros2_env_robot.bash
