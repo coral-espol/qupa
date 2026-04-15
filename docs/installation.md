@@ -44,6 +44,10 @@ sudo apt update && sudo apt install -y ros-jazzy-ros-base
 
 ```bash
 sudo apt install -y python3-rpi-lgpio python3-opencv python3-pip
+pip install smbus2 --break-system-packages
+sudo apt install i2c-tools
+sudo pip install adafruit-circuitpython-tcs34725 --break-system-packages
+sudo pip install apa102-pi --break-system-packages
 ```
 
 Enable I2C and SPI (required for floor sensor and LED strip):
@@ -62,11 +66,6 @@ See **[camera_setup.md](camera_setup.md)** for the full build instructions.
 ### 5. Floor colour sensor (TCS34725)
 
 The sensor communicates over I2C (I2C bus 1 by default).
-
-```bash
-sudo pip install adafruit-circuitpython-tcs34725 --break-system-packages
-```
-
 Verify the sensor is wired correctly and detected:
 
 ```bash
@@ -77,12 +76,6 @@ i2cdetect -y 1
 ### 6. LED strip (APA102)
 
 The strip communicates over SPI (hardware SPI0, CE0).
-
-```bash
-sudo apt install i2c-tools
-sudo pip install apa102-pi --break-system-packages
-```
-
 Verify SPI is available:
 
 ```bash
@@ -107,12 +100,11 @@ echo "source ~/qupa_ws/install/setup.bash" >> ~/.bashrc
 ```bash
 source ~/qupa_ws/src/qupa/ros2_env_robot.bash
 ```
-
 Add to `~/.bashrc` to auto-source on login.
 
 ---
 
-## PC / WSL2
+## PC / WSL2 - Optional
 
 ### 1. ROS2 Jazzy
 
