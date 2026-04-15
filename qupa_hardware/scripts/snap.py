@@ -25,7 +25,7 @@ try:
     from PIL import Image, ImageDraw, ImageTk
 except ImportError:
     print('Error: tkinter no disponible. Este modo solo corre en la PC.')
-    sys.exit(1)
+
 
 import yaml
 import cv2
