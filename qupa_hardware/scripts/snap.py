@@ -20,12 +20,18 @@ import math
 import os
 import sys
 import time
-import tkinter as tk
+try:
+    import tkinter as tk
+    from PIL import Image, ImageDraw, ImageTk
+except ImportError:
+    print('Error: tkinter no disponible. Este modo solo corre en la PC.')
+    sys.exit(1)
+
 import yaml
 import cv2
 
 from datetime import datetime
-from PIL import Image, ImageDraw, ImageTk
+
 
 try:
     from picamera2 import Picamera2
