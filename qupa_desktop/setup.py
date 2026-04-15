@@ -24,6 +24,8 @@ setup(
     description='PC-side launch files and RViz configurations for QUPA robot',
     license='MIT',
     entry_points={
-        'console_scripts': [],
+        'console_scripts': [
+            'calibrate_mask = qupa_desktop.calibrate_mask:main',
+        ],
     },
 )
