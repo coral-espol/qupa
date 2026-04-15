@@ -339,12 +339,7 @@ def _save_yaml(s):
 
 def main():
     parser = argparse.ArgumentParser(description='Utilidad de camara QUPA')
-    parser.add_argument(    pole_line1_p2: [220, 215]
-    pole_line2_p1: [0,   255]
-    pole_line2_p2: [220, 245]
-    pole_line3_p1: [640, 185]
-    pole_line3_p2: [420, 215]
-    pole_line4_p1: [640, 255]
+    parser.add_argument(
         '--yaml',
         default=os.path.expanduser(
             '~/qupa_ws/src/qupa/qupa_hardware/config/camera.yaml'
