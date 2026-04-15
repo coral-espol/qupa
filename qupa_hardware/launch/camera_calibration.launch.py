@@ -1,11 +1,16 @@
 """
-camera_calibration.launch.py — Live stream for mask/HSV tuning in RViz.
+camera_calibration.launch.py — Live image stream for mask/HSV tuning in RViz.
 
-Launches two independent nodes, each opening their own camera:
-  camera_node             — publishes camera/detections (DetectionArray)
-  camera_calibration_node — publishes camera/image_calibration/compressed (JPEG)
+Launches only camera_calibration_node — an independent node that opens its
+own camera instance and publishes the annotated calibration image.
+Does NOT launch camera_node.
 
-Both share the same camera.yaml parameters.
+Parameters are loaded from the camera_node section of camera.yaml so that
+both nodes always share the same mask geometry and HSV values. Edit camera.yaml
+once and both nodes pick up the change on the next launch.
+
+Publishes:
+  camera/image_calibration/compressed   (JPEG overlay for RViz)
 
 Usage:
   ros2 launch qupa_hardware camera_calibration.launch.py
@@ -13,6 +18,7 @@ Usage:
 """
 
 import os
+import yaml
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -25,6 +31,12 @@ def generate_launch_description():
     pkg     = get_package_share_directory('qupa_hardware')
     cam_cfg = os.path.join(pkg, 'config', 'camera.yaml')
 
+    # Load parameters from the camera_node section so both nodes share
+    # exactly the same values — calibrate once, save once.
+    with open(cam_cfg, 'r') as f:
+        cam_params = yaml.safe_load(f)
+    shared_params = cam_params.get('camera_node', {}).get('ros__parameters', {})
+
     ns = LaunchConfiguration('namespace')
 
     return LaunchDescription([
@@ -36,20 +48,11 @@ def generate_launch_description():
 
         Node(
             package='qupa_hardware',
-            executable='camera',
-            name='camera_node',
-            namespace=ns,
-            output='screen',
-            parameters=[cam_cfg],
-        ),
-
-        Node(
-            package='qupa_hardware',
             executable='camera_calibration',
             name='camera_calibration_node',
             namespace=ns,
             output='screen',
-            parameters=[cam_cfg],
+            parameters=[shared_params],
         ),
 
     ])
