@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    FastDDS unicast profile — Robot (Raspberry Pi)
+    Fuerza descubrimiento unicast hacia la PC.
+    Uso: export FASTRTPS_DEFAULT_PROFILES_FILE=~/qupa_ws/src/qupa/fastdds_robot.xml
+         (añadir al ros2_env_robot.bash)
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+    <participant profile_name="default_participant" is_default_profile="true">
+        <rtps>
+            <builtin>
+                <discovery_config>
+                    <discoveryProtocol>SIMPLE</discoveryProtocol>
+                    <use_SIMPLE_EndpointDiscoveryProtocol>true</use_SIMPLE_EndpointDiscoveryProtocol>
+                    <use_STATIC_EndpointDiscoveryProtocol>false</use_STATIC_EndpointDiscoveryProtocol>
+                    <initialAnnouncements>
+                        <count>10</count>
+                        <period>
+                            <nanoseconds>100000000</nanoseconds>
+                        </period>
+                    </initialAnnouncements>
+                    <metatrafficUnicastLocatorList>
+                        <locator>
+                            <udpv4>
+                                <port>7412</port>
+                            </udpv4>
+                        </locator>
+                    </metatrafficUnicastLocatorList>
+                </discovery_config>
+                <initialPeersList>
+                    <!-- PC / WSL2 -->
+                    <locator><udpv4><address>192.168.0.111</address><port>7412</port></udpv4></locator>
+                </initialPeersList>
+            </builtin>
+        </rtps>
+    </participant>
+</profiles>
