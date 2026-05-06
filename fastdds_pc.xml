@@ -1,41 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!--
-    FastDDS unicast profile — PC / WSL2 (192.168.0.111)
-    Fuerza descubrimiento unicast hacia todos los robots.
-    Uso: export FASTRTPS_DEFAULT_PROFILES_FILE=$(pwd)/fastdds_pc.xml
--->
 <profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
     <participant profile_name="default_participant" is_default_profile="true">
         <rtps>
             <builtin>
-                <discovery_config>
-                    <discoveryProtocol>SIMPLE</discoveryProtocol>
-                    <use_SIMPLE_EndpointDiscoveryProtocol>true</use_SIMPLE_EndpointDiscoveryProtocol>
-                    <use_STATIC_EndpointDiscoveryProtocol>false</use_STATIC_EndpointDiscoveryProtocol>
-                    <initialAnnouncements>
-                        <count>10</count>
-                        <period>
-                            <nanoseconds>100000000</nanoseconds>
-                        </period>
-                    </initialAnnouncements>
-                    <metatrafficUnicastLocatorList>
-                        <locator>
-                            <udpv4>
-                                <port>7412</port>
-                            </udpv4>
-                        </locator>
-                    </metatrafficUnicastLocatorList>
-                </discovery_config>
                 <initialPeersList>
-                    <!-- qupa_AE -->
                     <locator><udpv4><address>192.168.0.102</address><port>7412</port></udpv4></locator>
-                    <!-- qupa_3A -->
                     <locator><udpv4><address>192.168.0.120</address><port>7412</port></udpv4></locator>
-                    <!-- qupa_3B -->
                     <locator><udpv4><address>192.168.0.105</address><port>7412</port></udpv4></locator>
-                    <!-- qupa_3C -->
                     <locator><udpv4><address>192.168.0.122</address><port>7412</port></udpv4></locator>
-                    <!-- otro robot -->
                     <locator><udpv4><address>192.168.0.114</address><port>7412</port></udpv4></locator>
                 </initialPeersList>
             </builtin>
