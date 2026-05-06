@@ -14,7 +14,7 @@ Differential-drive robot with IR proximity sensing and colour-target detection v
 | Camera | Raspberry Pi Camera v1 — OV5647, picamera2, 640×480 |
 | Floor sensor | TCS34725 — RGB colour, I2C bus 1 (addr 0x29) |
 | LED strip | APA102 — 24 LEDs, hardware SPI0 |
-| PC / WSL2 | Ubuntu 24.04, ROS2 Jazzy — 192.168.0.111 |
+| PC | Ubuntu 24.04, ROS2 Jazzy — 192.168.0.111 |
 | Robot IP | 192.168.0.120 |
 
 ---
@@ -34,7 +34,7 @@ sudo pip install picamera2 adafruit-circuitpython-tcs34725 apa102-pi \
   --break-system-packages
 # + build libcamera RPi fork — see docs/camera_setup.md
 
-# PC / WSL2
+# PC
 sudo apt install ros-jazzy-desktop ros-jazzy-joint-state-publisher \
   ros-jazzy-image-transport-plugins
 
@@ -48,7 +48,29 @@ cd ~/qupa_ws && colcon build && source install/setup.bash
 
 ## Network / DDS
 
-Both the robot and the PC must source their respective env files before running any ROS2 command. These set `ROS_DOMAIN_ID=0` and point DDS static peers to the other machine.
+ROS2 uses **CycloneDDS** as the middleware. Both the robot and the PC must have it installed and sourced before running any ROS2 command.
+
+### CycloneDDS installation (robot and PC)
+
+```bash
+sudo apt install ros-jazzy-rmw-cyclonedds-cpp
+```
+
+### Swap setup (robot only)
+
+The Pi Zero W2 has limited RAM. A swap file is required to run multiple nodes reliably:
+
+```bash
+sudo fallocate -l 4G /swapfile
+sudo chmod 600 /swapfile
+sudo mkswap /swapfile
+sudo swapon /swapfile
+echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+```
+
+### Environment files
+
+Both machines must source their respective env file before running any ROS2 command. These set `ROS_DOMAIN_ID`, `ROS_AUTOMATIC_DISCOVERY_RANGE`, and `RMW_IMPLEMENTATION`.
 
 **On the robot:**
 ```bash
@@ -60,7 +82,15 @@ source ~/qupa_ws/src/qupa/ros2_env_robot.bash
 source ~/qupa_ws/src/qupa/ros2_env_pc.bash
 ```
 
-> If the robot's IP changes, update `ROS_STATIC_PEERS` in both files accordingly.
+To source automatically on every terminal session, add to `~/.bashrc` on each machine:
+
+```bash
+# Robot
+echo "source ~/qupa_ws/src/qupa/ros2_env_robot.bash" >> ~/.bashrc
+
+# PC
+echo "source ~/qupa_ws/src/qupa/ros2_env_pc.bash" >> ~/.bashrc
+```
 
 ---
 
@@ -281,7 +311,8 @@ ir_scanner:
 | Floor sensor not detected | I2C disabled or sensor not wired | Run `i2cdetect -y 1` — should show `0x29`; enable I2C with `raspi-config` |
 | `No module named 'apa102_pi'` | LED library not installed | `sudo pip install apa102-pi --break-system-packages` |
 | LED strip not responding | SPI disabled or wiring | Run `ls /dev/spidev0.*`; enable SPI with `raspi-config` |
-| Topics not visible across machines | DDS discovery | Source env files on both sides; check `ROS_STATIC_PEERS` IPs |
+| Topics not visible across machines | DDS discovery | Source env files on both sides; verify `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` on both |
+| Nodes killed unexpectedly on robot | RAM exhaustion | Check `free -h`; verify swap is active with `swapon --show` |
 | Launch file not found after build | File not synced before build | `git pull` on robot, then `colcon build` |
 | Motors stop immediately | Watchdog timeout | Publish `cmd_vel` at ≥ 4 Hz (timeout = 0.3 s) |
 | LaserScan shows no points in RViz | Fixed Frame wrong | Set Fixed Frame to `base_link` |
