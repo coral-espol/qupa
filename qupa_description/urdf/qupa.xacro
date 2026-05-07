@@ -2,7 +2,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg tf_prefix)">
 
     <xacro:property name="M_PI" value="3.1415926535897931" />
-    <xacro:property name="tf_prefix" default="qp_1"/>
+    <xacro:property name="tf_prefix" value="$(arg tf_prefix)"/>
     <xacro:property name="high_res" value="$(arg high_res)" lazy_eval="false"/>
     <xacro:property name="module" value="$(arg module)" lazy_eval="false"/>
     <xacro:property name="base_height" value="0.0" />
@@ -35,14 +35,14 @@
         <xacro:module/>               <!--Module Base-->
 
         <!--Links-->
-        <xacro:link_1 
-            prefix="Left" 
-            parent_link="base_link"
+        <xacro:link_1
+            prefix="Left"
+            parent_link="${tf_prefix}/base_link"
             xyz="0.042536 0.012084 0.0782"
             rpy="0 0 0.55"/>
-        <xacro:link_1 
+        <xacro:link_1
             prefix="Right"
-            parent_link="base_link"
+            parent_link="${tf_prefix}/base_link"
             xyz="0.042536 -0.012116 0.0782"
             rpy="0 0 -0.43481"/>
         <xacro:link_2 
@@ -90,28 +90,28 @@
     <xacro:mirror/>                     <!--Mirror Macro-->
 
     <!-- Wheels Macro-->
-    <xacro:wheel 
-        wheel_name="R_wheel" 
-        wheel_joint_name="R_wheel_joint" 
-        wheel_parent_name="base_link" 
-        wheel_joint_origin_xyz="-0 0.0415 0.016" 
+    <xacro:wheel
+        wheel_name="${tf_prefix}/R_wheel"
+        wheel_joint_name="R_wheel_joint"
+        wheel_parent_name="${tf_prefix}/base_link"
+        wheel_joint_origin_xyz="-0 0.0415 0.016"
         wheel_joint_origin_rpy=" 1.5708 0 3.1416" />
-    <xacro:wheel 
-        wheel_name="L_wheel" 
-        wheel_joint_name="L_wheel_joint" 
-        wheel_parent_name="base_link" 
-        wheel_joint_origin_xyz="0 -0.0415 0.016" 
+    <xacro:wheel
+        wheel_name="${tf_prefix}/L_wheel"
+        wheel_joint_name="L_wheel_joint"
+        wheel_parent_name="${tf_prefix}/base_link"
+        wheel_joint_origin_xyz="0 -0.0415 0.016"
         wheel_joint_origin_rpy=" 1.5708 0 0" />
     <xacro:caster
-        link_name = "caster_R"
+        link_name = "${tf_prefix}/caster_R"
         joint_name = "caster_R_joint"
         joint_origin_xyz = "0.0305 -0.0265 0.005"/>
     <xacro:caster
-        link_name = "caster_L"
+        link_name = "${tf_prefix}/caster_L"
         joint_name = "caster_L_joint"
         joint_origin_xyz = "0.0305 0.0265 0.005"/>
     <xacro:caster
-        link_name = "caster_B"
+        link_name = "${tf_prefix}/caster_B"
         joint_name = "caster_B_joint"
         joint_origin_xyz = "-0.0325 0 0.005"/>
     

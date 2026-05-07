@@ -9,7 +9,7 @@
   <xacro:macro name="ir_sensor" params="link_name joint_name
                                         joint_origin_xyz joint_origin_rpy">
     <!--Link Definition -->
-    <link name="${link_name}">
+    <link name="$(arg tf_prefix)/${link_name}">
       <inertial>
         <mass value="0.01"/>
         <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
@@ -27,16 +27,16 @@
     <!-- Joint Definition -->
     <joint name="${joint_name}" type="fixed">
       <origin xyz="${joint_origin_xyz}" rpy="${joint_origin_rpy}" />
-      <parent link="base_link" />
-      <child link="${link_name}" />
+      <parent link="$(arg tf_prefix)/base_link" />
+      <child link="$(arg tf_prefix)/${link_name}" />
       <axis xyz="0 0 0" />
-    </joint>                                                                                                
+    </joint>
   </xacro:macro>
 
   <!-- IR sensor Macro-->
   <xacro:macro name="infrared" params="joint_origin_xyz joint_origin_rpy">
     <!--Link Definition -->
-    <link name="infrared_link">
+    <link name="$(arg tf_prefix)/infrared_link">
       <inertial>
         <mass value="0.0001"/>
         <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
@@ -59,8 +59,8 @@
     <!-- Joint Definition -->
     <joint name="infrared_joint" type="fixed">
       <origin xyz="${joint_origin_xyz}" rpy="${joint_origin_rpy}" />
-      <parent link="base_link" />
-      <child link="infrared_link" />
+      <parent link="$(arg tf_prefix)/base_link" />
+      <child link="$(arg tf_prefix)/infrared_link" />
       <axis xyz="0 0 0" />
     </joint>
 

@@ -31,7 +31,7 @@
     <!-- Joint de la rueda -->
     <joint name="${joint_name}" type="fixed">
       <origin xyz="${joint_origin_xyz}" rpy="0 0 0" />
-      <parent link="base_link" />
+      <parent link="$(arg tf_prefix)/base_link" />
       <child link="${link_name}" />
     </joint>
 

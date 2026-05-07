@@ -6,8 +6,8 @@
     <xacro:property name="camera_height" value="0.20" />
     
     <!-- Mirror Macro -->
-    <xacro:macro name="mirror">    
-        <link name="mirror_link">
+    <xacro:macro name="mirror">
+        <link name="$(arg tf_prefix)/mirror_link">
             <inertial>
             <origin
                 xyz="0 0.0072703 1.0408E-17"
@@ -37,11 +37,11 @@
             </material>
             </visual>
         </link>
-        
-        <joint name="mirror_joint" type="fixed">        
+
+        <joint name="mirror_joint" type="fixed">
             <origin xyz="0 0 ${mirror_height}" rpy="1.5708 0 0" />
-            <parent link="base_link" />
-            <child link="mirror_link" />
+            <parent link="$(arg tf_prefix)/base_link" />
+            <child link="$(arg tf_prefix)/mirror_link" />
             <axis xyz="1 0 0" />
         </joint>
 
@@ -50,7 +50,7 @@
     <!-- Logical Camera Macro -->
     <xacro:macro name="log_cam">
         <!--Logical Camera Frame-->
-        <link name="logical_camera_link">
+        <link name="$(arg tf_prefix)/logical_camera_link">
             <inertial>
                 <mass value="0.001" />
                 <origin xyz="0 0 0" rpy="0 0 0" />
@@ -66,8 +66,8 @@
 
         <!--Logical Camera joint-->
         <joint name="logical_camera_joint" type="fixed">
-            <parent link="base_link" />
-            <child link="logical_camera_link" />
+            <parent link="$(arg tf_prefix)/base_link" />
+            <child link="$(arg tf_prefix)/logical_camera_link" />
             <origin xyz="0 0 ${camera_height}"  rpy="0 1.5708 0" />
         </joint>
 
@@ -90,7 +90,7 @@
     <xacro:macro name="real_cam">
 
         <!--Logical Camera Frame-->
-        <link name="camera_link">
+        <link name="$(arg tf_prefix)/camera_link">
             <inertial>
                 <mass value="0.001" />
                 <origin xyz="0 0 0" rpy="0 0 0" />
@@ -106,8 +106,8 @@
 
         <!--Logical Camera joint-->
         <joint name="camera_joint" type="fixed">
-            <parent link="base_link" />
-            <child link="camera_link" />
+            <parent link="$(arg tf_prefix)/base_link" />
+            <child link="$(arg tf_prefix)/camera_link" />
             <origin xyz="0 0 ${camera_height}"  rpy="0 1.5708 0" />
         </joint>
 

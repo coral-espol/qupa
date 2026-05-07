@@ -5,9 +5,9 @@
     <xacro:property name="base_scale" value="1 1 1" />
 
     <!--Base with Module installed-->
-    <xacro:macro name="module">  
+    <xacro:macro name="module">
 
-        <link name="base_link">
+        <link name="$(arg tf_prefix)/base_link">
             <inertial>
                 <origin xyz="0 0 0" rpy="0 0 0" />
                 <mass value="${base_mass}" />
@@ -35,12 +35,12 @@
         </link>
 
         <joint name="imu_joint" type="fixed">
-            <parent link="base_link"/>
-            <child link="imu_link"/>
+            <parent link="$(arg tf_prefix)/base_link"/>
+            <child link="$(arg tf_prefix)/imu_link"/>
             <origin xyz="0.0 0 0.07" rpy="0 0 0"/>
         </joint>
 
-        <link name="imu_link">
+        <link name="$(arg tf_prefix)/imu_link">
             <inertial>
                 <mass value="0.05"/>
                 <inertia ixx="0.000001" ixy="0" ixz="0"
