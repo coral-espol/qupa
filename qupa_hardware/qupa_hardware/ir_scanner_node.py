@@ -237,9 +237,13 @@ class IRScannerNode(Node):
             self.get_logger().error(f'Failed to open I2C bus: {e}')
             return
 
+        ns = self.get_namespace().strip('/')
+        self._scan_frame_id = f'{ns}/base_link' if ns else 'base_link'
+
         self._timer = self.create_timer(self._loop_dt, self._scan_callback)
         self.get_logger().info(
-            f'IR Scanner ready — publishing /scan at {1.0/self._loop_dt:.1f} Hz'
+            f'IR Scanner ready — publishing /scan at {1.0/self._loop_dt:.1f} Hz '
+            f'(frame: {self._scan_frame_id})'
         )
 
     # ── Timer callback ────────────────────────────────────────────────────────
@@ -254,7 +258,7 @@ class IRScannerNode(Node):
 
         msg = LaserScan()
         msg.header.stamp    = now
-        msg.header.frame_id = 'base_link'
+        msg.header.frame_id = self._scan_frame_id
         msg.angle_min       = COMBINED_AMIN
         msg.angle_max       = COMBINED_AMAX
         msg.angle_increment = COMBINED_AINC
