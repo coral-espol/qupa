@@ -14,6 +14,7 @@ Differential-drive robot with IR proximity sensing and colour-target detection v
 | Camera | Raspberry Pi Camera v1 — OV5647, picamera2, 640×480 |
 | Floor sensor | TCS34725 — RGB colour, I2C bus 1 (addr 0x29) |
 | LED strip | APA102 — 24 LEDs, hardware SPI0 |
+| UV LEDs | LED bank, GPIO pin 26 via transistor |
 | PC | Ubuntu 24.04, ROS2 Jazzy — 192.168.0.111 |
 | Robot IP | 192.168.0.120 |
 
@@ -30,7 +31,7 @@ Camera setup requires building the Raspberry Pi libcamera fork due to a known Ub
 ```bash
 # Robot
 sudo apt install ros-jazzy-ros-base python3-rpi-lgpio python3-opencv
-sudo pip install picamera2 adafruit-circuitpython-tcs34725 apa102-pi \
+sudo pip install picamera2 adafruit-circuitpython-tcs34725 apa102-pi gpiozero \
   --break-system-packages
 # + build libcamera RPi fork — see docs/camera_setup.md
 
@@ -98,7 +99,7 @@ echo "source ~/qupa_ws/src/qupa/ros2_env_pc.bash" >> ~/.bashrc
 
 | Package | Machine | Purpose |
 |---|---|---|
-| `qupa_msgs` | both | Custom message definitions (`Detection`, `DetectionArray`) |
+| `qupa_msgs` | both | Custom message and service definitions (`Detection`, `DetectionArray`, `LEDCommand`) |
 | `qupa_hardware` | robot | Hardware drivers — IR scanner, motor driver, camera, floor sensor, LEDs |
 | `qupa_description` | both | URDF/Xacro robot model for TF and visualisation |
 | `qupa_desktop` | PC | RViz launch and configuration for visualisation |
@@ -138,12 +139,18 @@ ros2 launch qupa_desktop view.launch.py
 
 | Topic | Type | Direction | Rate | Description |
 |---|---|---|---|---|
-| `/qupa_3A/scan` | `sensor_msgs/LaserScan` | robot → PC | 10 Hz | 8-slot scan (45° step, `base_link` frame) |
+| `/qupa_3A/scan` | `sensor_msgs/LaserScan` | robot → PC | 10 Hz | 8-slot scan (45° step, `qupa_3A/base_link` frame) |
 | `/qupa_3A/cmd_vel` | `geometry_msgs/Twist` | PC → robot | on demand | Linear (m/s) + angular (rad/s) command |
 | `/qupa_3A/camera/detections` | `qupa_msgs/DetectionArray` | robot → PC | 3 Hz | All colour blobs detected in the ring |
 | `/qupa_3A/camera/image_calibration/compressed` | `sensor_msgs/CompressedImage` | robot → PC | 3 Hz | Annotated JPEG for RViz (calibration mode only) |
 | `/qupa_3A/floor/color` | `std_msgs/String` | robot → PC | 5 Hz | JSON: `{"label": "CYAN", "hsv": [h, s, v]}` |
-| `/qupa_3A/leds/command` | `std_msgs/String` | PC → robot | on demand | JSON LED command (see LED section) |
+
+### Services
+
+| Service | Type | Description |
+|---|---|---|
+| `/qupa_3A/led_node/set` | `qupa_msgs/LEDCommand` | APA102 strip — JSON command (see LED section) |
+| `/qupa_3A/uv_led/set` | `std_srvs/SetBool` | UV LED bank on GPIO 26 — `true` = on, `false` = off |
 
 ### DetectionArray message
 
@@ -175,22 +182,38 @@ ros2 topic echo /qupa_3A/camera/detections
 
 Possible labels: `CYAN`, `MAGENTA`, `YELLOW`, `UNKNOWN`.
 
-### LED command message
+### APA102 LED service
 
-`std_msgs/String` with a JSON payload. Supported modes:
+`qupa_msgs/LEDCommand` — request carries a JSON string, response confirms success. Supported modes:
 
 ```bash
 # Set all LEDs to one colour
-ros2 topic pub --once /qupa_3A/leds/command std_msgs/msg/String \
-  '{"data": "{\"mode\": \"set_all\", \"rgb\": [0, 0, 255]}"}'
+ros2 service call /qupa_3A/led_node/set qupa_msgs/srv/LEDCommand \
+  "{command: '{\"mode\": \"set_all\", \"rgb\": [0, 0, 255]}'}"
 
-# Set a specific range of LEDs
-ros2 topic pub --once /qupa_3A/leds/command std_msgs/msg/String \
-  '{"data": "{\"mode\": \"set_segment\", \"rgb\": [0, 255, 0], \"from\": 0, \"to\": 7}"}'
+# Set a specific index range
+ros2 service call /qupa_3A/led_node/set qupa_msgs/srv/LEDCommand \
+  "{command: '{\"mode\": \"set_segment\", \"rgb\": [0, 255, 0], \"from\": 0, \"to\": 7}'}"
+
+# Set a named segment (seg0 / seg1 / seg2)
+ros2 service call /qupa_3A/led_node/set qupa_msgs/srv/LEDCommand \
+  "{command: '{\"mode\": \"set_named_segment\", \"rgb\": [255, 0, 0], \"segment\": \"seg1\"}'}"
 
 # Clear (turn off all)
-ros2 topic pub --once /qupa_3A/leds/command std_msgs/msg/String \
-  '{"data": "{\"mode\": \"clear\"}"}'
+ros2 service call /qupa_3A/led_node/set qupa_msgs/srv/LEDCommand \
+  "{command: '{\"mode\": \"clear\"}'}"
+```
+
+### UV LED service
+
+`std_srvs/SetBool` — turns the GPIO 26 LED bank on or off:
+
+```bash
+# Turn on
+ros2 service call /qupa_3A/uv_led/set std_srvs/srv/SetBool "{data: true}"
+
+# Turn off
+ros2 service call /qupa_3A/uv_led/set std_srvs/srv/SetBool "{data: false}"
 ```
 
 ### LaserScan slot layout
@@ -281,6 +304,7 @@ Once satisfied, copy the values into `qupa_hardware/config/camera.yaml` and rebu
 | `config/camera.yaml` | `camera_node`, `camera_calibration_node` | Resolution, ring mask, pole exclusions, HSV ranges, publish rate |
 | `config/floor_sensor.yaml` | `floor_sensor_node` | Loop rate, integration time, gain, HSV ranges per colour label |
 | `config/leds.yaml` | `led_node` | LED count, global brightness, named segment index ranges |
+| *(no config file)* | `uv_led` | Pin configurable via launch arg `pin` (default 26) |
 
 ---
 
@@ -311,6 +335,8 @@ ir_scanner:
 | Floor sensor not detected | I2C disabled or sensor not wired | Run `i2cdetect -y 1` — should show `0x29`; enable I2C with `raspi-config` |
 | `No module named 'apa102_pi'` | LED library not installed | `sudo pip install apa102-pi --break-system-packages` |
 | LED strip not responding | SPI disabled or wiring | Run `ls /dev/spidev0.*`; enable SPI with `raspi-config` |
+| `No module named 'gpiozero'` | UV LED library not installed | `sudo pip install gpiozero --break-system-packages` |
+| UV LEDs not responding | GPIO pin permission or wiring | Check transistor wiring on pin 26; verify with `pinout` command |
 | Topics not visible across machines | DDS discovery | Source env files on both sides; verify `RMW_IMPLEMENTATION=rmw_cyclonedds_cpp` on both |
 | Nodes killed unexpectedly on robot | RAM exhaustion | Check `free -h`; verify swap is active with `swapon --show` |
 | Launch file not found after build | File not synced before build | `git pull` on robot, then `colcon build` |
