@@ -38,7 +38,7 @@ class GpioLedNode(Node):
         else:
             try:
                 self._led = GPIOLED(pin)
-                self._led.off()
+                self._led.on()   # active-low: pin high = LEDs off
                 self.get_logger().info(f'UV LED ready on GPIO pin {pin}.')
             except Exception as e:
                 self.get_logger().error(f'UV LED init failed on pin {pin}: {e}')
@@ -49,7 +49,8 @@ class GpioLedNode(Node):
     def _set_cb(self, request: SetBool.Request,
                 response: SetBool.Response):
         if self._led is not None:
-            self._led.on() if request.data else self._led.off()
+            # active-low: request True (on) → pin low; False (off) → pin high
+            self._led.off() if request.data else self._led.on()
 
         response.success = True
         response.message = 'on' if request.data else 'off'
@@ -57,7 +58,7 @@ class GpioLedNode(Node):
 
     def destroy_node(self):
         if self._led is not None:
-            self._led.off()
+            self._led.on()   # active-low: pin high = LEDs off on shutdown
             self._led.close()
         super().destroy_node()
 
