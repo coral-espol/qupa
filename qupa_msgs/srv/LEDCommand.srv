@@ -1,0 +1,9 @@
+# JSON command string — same format as the old leds/command topic:
+#   {"mode": "set_all",          "rgb": [r, g, b]}
+#   {"mode": "set_segment",      "rgb": [r, g, b], "from": 0, "to": 7}
+#   {"mode": "set_named_segment","rgb": [r, g, b], "segment": "seg0"}
+#   {"mode": "clear"}
+string command
+---
+bool success
+string message

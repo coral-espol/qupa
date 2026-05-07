@@ -3,12 +3,13 @@
 """
 led_node — ROS2 Jazzy node for the APA102 LED strip.
 
-Subscribes to LED commands and drives the strip.
+Exposes a service so callers get confirmation the command was applied.
 
-Subscribes:
-  leds/command   std_msgs/String   JSON commands:
-    {"mode": "set_all",     "rgb": [r, g, b]}
-    {"mode": "set_segment", "rgb": [r, g, b], "from": 0, "to": 7}
+Services:
+  ~/set   qupa_msgs/LEDCommand   JSON command string:
+    {"mode": "set_all",           "rgb": [r, g, b]}
+    {"mode": "set_segment",       "rgb": [r, g, b], "from": 0, "to": 7}
+    {"mode": "set_named_segment", "rgb": [r, g, b], "segment": "seg0"}
     {"mode": "clear"}
 
 Segments (from leds.yaml):
@@ -17,10 +18,11 @@ Segments (from leds.yaml):
   seg2: 17–23   side
 """
 
+import json
+
 import rclpy
 from rclpy.node import Node
-from std_msgs.msg import String
-import json
+from qupa_msgs.srv import LEDCommand
 
 try:
     from apa102_pi.driver import apa102
@@ -35,10 +37,9 @@ class LEDNode(Node):
         super().__init__('led_node')
 
         # ── Parameters ──
-        self.declare_parameter('led_count',        24)
+        self.declare_parameter('led_count',         24)
         self.declare_parameter('global_brightness', 10)
 
-        # Segment definitions
         self.declare_parameter('seg0_from',  0)
         self.declare_parameter('seg0_to',    7)
         self.declare_parameter('seg1_from',  8)
@@ -63,22 +64,18 @@ class LEDNode(Node):
         self._strip = None
         if not _HW:
             self.get_logger().error('apa102_pi not found — cannot init LED strip.')
-            return
+        else:
+            try:
+                self._strip = apa102.APA102(num_led=count,
+                                            global_brightness=brightness)
+                self._clear_all()
+                self.get_logger().info(f'APA102 strip initialized — {count} LEDs.')
+            except Exception as e:
+                self.get_logger().error(f'LED strip init failed: {e}')
 
-        try:
-            self._strip = apa102.APA102(num_led=count,
-                                        global_brightness=brightness)
-            self._clear_all()
-            self.get_logger().info(f'APA102 strip initialized — {count} LEDs.')
-        except Exception as e:
-            self.get_logger().error(f'LED strip init failed: {e}')
-            return
-
-        # ── Subscriber ──
-        self._sub = self.create_subscription(
-            String, 'leds/command', self._cmd_cb, 10
-        )
-        self.get_logger().info('LED node ready — listening on leds/command')
+        # ── Service ──
+        self.create_service(LEDCommand, 'set', self._set_cb)
+        self.get_logger().info('LED node ready — service on ~/set')
 
     # ── LED helpers ──────────────────────────────────────────────────────────
 
@@ -102,13 +99,17 @@ class LEDNode(Node):
             self._strip.set_pixel(i, 0, 0, 0)
         self._strip.show()
 
-    # ── Subscriber callback ──────────────────────────────────────────────────
+    # ── Service callback ─────────────────────────────────────────────────────
 
-    def _cmd_cb(self, msg: String):
+    def _set_cb(self, request: LEDCommand.Request,
+                response: LEDCommand.Response):
         if self._strip is None:
-            return
+            response.success = False
+            response.message = 'hardware not available'
+            return response
+
         try:
-            data = json.loads(msg.data)
+            data = json.loads(request.command)
             mode = data.get('mode', 'set_all')
             rgb  = data.get('rgb', [0, 0, 0])
 
@@ -116,20 +117,29 @@ class LEDNode(Node):
                 self._set_all(rgb)
 
             elif mode == 'set_segment':
-                start = data.get('from', 0)
-                end   = data.get('to',   0)
-                self._set_range(start, end, rgb)
+                self._set_range(data.get('from', 0), data.get('to', 0), rgb)
 
             elif mode == 'set_named_segment':
-                name  = data.get('segment', 'seg0')
+                name       = data.get('segment', 'seg0')
                 start, end = self._segments.get(name, (0, 0))
                 self._set_range(start, end, rgb)
 
             elif mode == 'clear':
                 self._clear_all()
 
+            else:
+                response.success = False
+                response.message = f'unknown mode: {mode}'
+                return response
+
+            response.success = True
+            response.message = mode
+
         except Exception as e:
-            self.get_logger().error(f'LED command error: {e}')
+            response.success = False
+            response.message = str(e)
+
+        return response
 
     def destroy_node(self):
         if self._strip is not None:

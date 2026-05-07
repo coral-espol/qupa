@@ -51,6 +51,14 @@ def generate_launch_description():
         parameters=[leds_cfg],
     )
 
+    uv_led_node = Node(
+        package='qupa_hardware',
+        executable='uv_led',
+        name='uv_led',
+        namespace=ns,
+        output='screen',
+    )
+
     return LaunchDescription([
 
         DeclareLaunchArgument(
@@ -61,6 +69,7 @@ def generate_launch_description():
         ir_node,                                      # t = 0 s
         TimerAction(period=3.0,  actions=[motor_node]),  # t = 3 s
         TimerAction(period=6.0,  actions=[floor_node]),  # t = 6 s
-        TimerAction(period=9.0,  actions=[led_node]),    # t = 9 s
+        TimerAction(period=9.0,  actions=[led_node]),     # t = 9 s
+        TimerAction(period=10.0, actions=[uv_led_node]), # t = 10 s
 
     ])

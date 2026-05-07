@@ -32,6 +32,7 @@ setup(
             'camera_calibration = qupa_hardware.camera_calibration_node:main',
             'floor_sensor       = qupa_hardware.floor_sensor_node:main',
             'led                = qupa_hardware.led_node:main',
+            'uv_led             = qupa_hardware.gpio_led_node:main',
         ],
     },
 )
