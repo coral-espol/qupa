@@ -43,7 +43,7 @@ class GpioLedNode(Node):
             except Exception as e:
                 self.get_logger().error(f'UV LED init failed on pin {pin}: {e}')
 
-        self.create_service(SetBool, 'set', self._set_cb)
+        self.create_service(SetBool, '~/set', self._set_cb)
         self.get_logger().info(f'UV LED service ready on {self.get_namespace()}/uv_led/set')
 
     def _set_cb(self, request: SetBool.Request,
