@@ -1,4 +1,4 @@
-camera_node:
+/**:
   ros__parameters:
     # Capture
     image_width:  640
@@ -29,14 +29,12 @@ camera_node:
     pole_line4_p1: [640, 255]
     pole_line4_p2: [420, 245]
 
-    # Detection
-    min_area: 50
+    # Detection — minimum blob area per color (px²)
+    min_area_blue:  50
+    min_area_green: 50
 
     # HSV color ranges [H, S, V]
     color_blue_lower:  [100,  80,  60]
     color_blue_upper:  [140, 255, 255]
     color_green_lower: [ 35,  80,  80]
     color_green_upper: [ 85, 255, 255]
-    color_red_lower:   [  0, 160, 120]
-    color_red_upper:   [  8, 255, 255]
-

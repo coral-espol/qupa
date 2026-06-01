@@ -97,13 +97,12 @@ class CameraNode(Node):
         self.declare_parameter('pole_line3_p2', [180, 480])
         self.declare_parameter('pole_line4_p1', [140, 0])
         self.declare_parameter('pole_line4_p2', [220, 480])
-        self.declare_parameter('min_area', 50)
+        self.declare_parameter('min_area_blue',  50)
+        self.declare_parameter('min_area_green', 50)
         self.declare_parameter('color_blue_lower',  [100,  80,  60])
         self.declare_parameter('color_blue_upper',  [140, 255, 255])
         self.declare_parameter('color_green_lower', [ 35,  80,  80])
         self.declare_parameter('color_green_upper', [ 85, 255, 255])
-        self.declare_parameter('color_red_lower',   [  0, 160, 120])
-        self.declare_parameter('color_red_upper',   [  8, 255, 255])
 
         W          = self.get_parameter('image_width').value
         H          = self.get_parameter('image_height').value
@@ -111,18 +110,28 @@ class CameraNode(Node):
         warmup_s   = self.get_parameter('warmup_s').value
         self._vflip = self.get_parameter('vflip').value
         self._W, self._H = W, H
-        self._min_area   = self.get_parameter('min_area').value
 
         self._inner_off_x = self.get_parameter('inner_offset_x').value
         self._inner_off_y = self.get_parameter('inner_offset_y').value
 
+        min_area_blue  = self.get_parameter('min_area_blue').value
+        min_area_green = self.get_parameter('min_area_green').value
+
+        self.get_logger().info(
+            f'[PARAMS] inner_offset=({self._inner_off_x},{self._inner_off_y}) '
+            f'outer_offset=({self.get_parameter("outer_offset_x").value},{self.get_parameter("outer_offset_y").value}) '
+            f'inner_r={self.get_parameter("inner_radius_px").value} '
+            f'outer_r={self.get_parameter("outer_radius_px").value} '
+            f'min_area blue={min_area_blue} green={min_area_green}'
+        )
+
         self._colors = {
             'BLUE':  (np.array(self.get_parameter('color_blue_lower').value,  np.uint8),
-                      np.array(self.get_parameter('color_blue_upper').value,  np.uint8)),
+                      np.array(self.get_parameter('color_blue_upper').value,  np.uint8),
+                      min_area_blue),
             'GREEN': (np.array(self.get_parameter('color_green_lower').value, np.uint8),
-                      np.array(self.get_parameter('color_green_upper').value, np.uint8)),
-            'RED':   (np.array(self.get_parameter('color_red_lower').value,   np.uint8),
-                      np.array(self.get_parameter('color_red_upper').value,   np.uint8)),
+                      np.array(self.get_parameter('color_green_upper').value, np.uint8),
+                      min_area_green),
         }
 
         self._build_mask()
@@ -194,8 +203,8 @@ class CameraNode(Node):
         ox = (self._W - 1) / 2.0 + self._inner_off_x
         oy = (self._H - 1) / 2.0 + self._inner_off_y
 
-        for name, (lower, upper) in self._colors.items():
-            for cnt in _find_all_contours(hsv, lower, upper, self._min_area):
+        for name, (lower, upper, min_area) in self._colors.items():
+            for cnt in _find_all_contours(hsv, lower, upper, min_area):
                 cx_roi, cy_roi = _centroid(cnt)
                 cx_g = rx0 + cx_roi
                 cy_g = ry0 + cy_roi

@@ -1,17 +1,25 @@
+import os
+import yaml
+
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, TimerAction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory
-import os
 
 
 def generate_launch_description():
     pkg = get_package_share_directory('qupa_hardware')
-    ir_cfg    = os.path.join(pkg, 'config', 'ir_scanner.yaml')
-    motor_cfg = os.path.join(pkg, 'config', 'motor.yaml')
-    floor_cfg = os.path.join(pkg, 'config', 'floor_sensor.yaml')
-    leds_cfg  = os.path.join(pkg, 'config', 'leds.yaml')
+
+    def _load(file_key, yaml_path):
+        with open(yaml_path, 'r') as f:
+            cfg = yaml.safe_load(f)
+        return cfg.get(file_key, {}).get('ros__parameters', {})
+
+    ir_params    = _load('ir_scanner',      os.path.join(pkg, 'config', 'ir_scanner.yaml'))
+    motor_params = _load('motor_node',      os.path.join(pkg, 'config', 'motor.yaml'))
+    floor_params = _load('floor_sensor_node', os.path.join(pkg, 'config', 'floor_sensor.yaml'))
+    leds_params  = _load('led_node',        os.path.join(pkg, 'config', 'leds.yaml'))
 
     ns = LaunchConfiguration('namespace')
 
@@ -21,7 +29,7 @@ def generate_launch_description():
         name='ir_scanner',
         namespace=ns,
         output='screen',
-        parameters=[ir_cfg],
+        parameters=[ir_params],
     )
 
     motor_node = Node(
@@ -30,7 +38,7 @@ def generate_launch_description():
         name='motor_node',
         namespace=ns,
         output='screen',
-        parameters=[motor_cfg],
+        parameters=[motor_params],
     )
 
     floor_node = Node(
@@ -39,7 +47,7 @@ def generate_launch_description():
         name='floor_sensor_node',
         namespace=ns,
         output='screen',
-        parameters=[floor_cfg],
+        parameters=[floor_params],
     )
 
     led_node = Node(
@@ -48,7 +56,7 @@ def generate_launch_description():
         name='led_node',
         namespace=ns,
         output='screen',
-        parameters=[leds_cfg],
+        parameters=[leds_params],
     )
 
     uv_led_node = Node(
@@ -66,10 +74,10 @@ def generate_launch_description():
             description='Robot namespace — change per robot (e.g. qupa_3B)'
         ),
 
-        ir_node,                                      # t = 0 s
-        TimerAction(period=3.0,  actions=[motor_node]),  # t = 3 s
-        TimerAction(period=6.0,  actions=[floor_node]),  # t = 6 s
-        TimerAction(period=9.0,  actions=[led_node]),     # t = 9 s
-        TimerAction(period=10.0, actions=[uv_led_node]), # t = 10 s
+        ir_node,
+        TimerAction(period=3.0,  actions=[motor_node]),
+        TimerAction(period=6.0,  actions=[floor_node]),
+        TimerAction(period=9.0,  actions=[led_node]),
+        TimerAction(period=10.0, actions=[uv_led_node]),
 
     ])

@@ -18,7 +18,6 @@ Usage:
 """
 
 import os
-import yaml
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
@@ -30,12 +29,6 @@ from ament_index_python.packages import get_package_share_directory
 def generate_launch_description():
     pkg     = get_package_share_directory('qupa_hardware')
     cam_cfg = os.path.join(pkg, 'config', 'camera.yaml')
-
-    # Load parameters from the camera_node section so both nodes share
-    # exactly the same values — calibrate once, save once.
-    with open(cam_cfg, 'r') as f:
-        cam_params = yaml.safe_load(f)
-    shared_params = cam_params.get('camera_node', {}).get('ros__parameters', {})
 
     ns = LaunchConfiguration('namespace')
 
@@ -52,7 +45,7 @@ def generate_launch_description():
             name='camera_calibration_node',
             namespace=ns,
             output='screen',
-            parameters=[shared_params],
+            parameters=[cam_cfg],
         ),
 
     ])

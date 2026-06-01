@@ -85,13 +85,12 @@ class CameraCalibrationNode(Node):
         self.declare_parameter('pole_line3_p2', [180, 480])
         self.declare_parameter('pole_line4_p1', [140, 0])
         self.declare_parameter('pole_line4_p2', [220, 480])
-        self.declare_parameter('min_area', 50)
+        self.declare_parameter('min_area_blue',  50)
+        self.declare_parameter('min_area_green', 50)
         self.declare_parameter('color_blue_lower',  [100,  80,  60])
         self.declare_parameter('color_blue_upper',  [140, 255, 255])
         self.declare_parameter('color_green_lower', [ 35,  80,  80])
         self.declare_parameter('color_green_upper', [ 85, 255, 255])
-        self.declare_parameter('color_red_lower',   [  0, 160, 120])
-        self.declare_parameter('color_red_upper',   [  8, 255, 255])
 
         W          = self.get_parameter('image_width').value
         H          = self.get_parameter('image_height').value
@@ -189,15 +188,13 @@ class CameraCalibrationNode(Node):
         self._colors = {
             'BLUE':  (np.array(self.get_parameter('color_blue_lower').value,  np.uint8),
                       np.array(self.get_parameter('color_blue_upper').value,  np.uint8),
-                      (255, 0, 0)),    # BGR blue
+                      (255, 0, 0),    # BGR blue
+                      self.get_parameter('min_area_blue').value),
             'GREEN': (np.array(self.get_parameter('color_green_lower').value, np.uint8),
                       np.array(self.get_parameter('color_green_upper').value, np.uint8),
-                      (0, 255, 0)),    # BGR green
-            'RED':   (np.array(self.get_parameter('color_red_lower').value,   np.uint8),
-                      np.array(self.get_parameter('color_red_upper').value,   np.uint8),
-                      (0, 0, 255)),    # BGR red
+                      (0, 255, 0),    # BGR green
+                      self.get_parameter('min_area_green').value),
         }
-        self._min_area = self.get_parameter('min_area').value
 
     # ── Timer callback ────────────────────────────────────────────────────────
 
@@ -229,14 +226,14 @@ class CameraCalibrationNode(Node):
         oy = (self._H - 1) / 2.0 + self._oy_in
 
         label_y = 20
-        for name, (lower, upper, col) in self._colors.items():
+        for name, (lower, upper, col, min_area) in self._colors.items():
             cm = cv2.inRange(hsv, lower, upper)
             cm = cv2.morphologyEx(cm, cv2.MORPH_OPEN,  k)
             cm = cv2.morphologyEx(cm, cv2.MORPH_CLOSE, k)
             cnts, _ = cv2.findContours(cm, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             for cnt in cnts:
                 area = cv2.contourArea(cnt)
-                if area < self._min_area:
+                if area < min_area:
                     continue
 
                 # Bounding rect in full-frame coordinates
