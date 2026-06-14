@@ -35,14 +35,26 @@
       <child link="${link_name}" />
     </joint>
 
+    <!-- Gazebo Harmonic: friction inside <collision><surface> (SDF 1.9 format) -->
     <gazebo reference="${link_name}">
-      <mu1>0.1</mu1>
-      <mu2>0.1</mu2>
-      <kp>1000000.0</kp>
-      <kd>100.0</kd>
-      <minDepth>0.001</minDepth>
-      <maxVel>1.0</maxVel>
-      <!-- <material>Gazebo/FlatBlack</material> -->
+      <collision>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.1</mu>
+              <mu2>0.1</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>1000000.0</kp>
+              <kd>100.0</kd>
+              <min_depth>0.001</min_depth>
+              <max_vel>1.0</max_vel>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
     </gazebo>
   </xacro:macro>
 </robot>

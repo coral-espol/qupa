@@ -61,13 +61,26 @@
       <limit effort="${joint_effort}" velocity="1.0" lower="-1000.0" upper="1000.0" />
       <dynamics damping="${wheel_damping}" friction="${wheel_friction}" />
     </joint>
+    <!-- Gazebo Harmonic: friction inside <collision><surface> (SDF 1.9 format) -->
     <gazebo reference="${wheel_name}">
-      <mu>${wheel_friction_mu}</mu> 
-      <mu2>${wheel_friction_mu2}</mu2>
-      <kp>${contact_kp}</kp>
-      <kd>${contact_kd}</kd>
-      <maxVel>${max_contact_vel}</maxVel>
-      <minDepth>${min_contact_depth}</minDepth>
+      <collision>
+        <surface>
+          <friction>
+            <ode>
+              <mu>${wheel_friction_mu}</mu>
+              <mu2>${wheel_friction_mu2}</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>${contact_kp}</kp>
+              <kd>${contact_kd}</kd>
+              <max_vel>${max_contact_vel}</max_vel>
+              <min_depth>${min_contact_depth}</min_depth>
+            </ode>
+          </contact>
+        </surface>
+      </collision>
     </gazebo>
   </xacro:macro>
 </robot>

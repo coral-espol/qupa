@@ -23,6 +23,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -32,7 +33,11 @@ def generate_launch_description():
     xacro_file = os.path.join(desc_pkg, 'urdf', 'qupa_real.xacro')
     rviz_cfg   = os.path.join(desktop_pkg, 'config', 'calibration.rviz')
 
-    robot_description = Command(['xacro ', xacro_file])
+    # use_sim_plugins=false → no Gazebo plugins loaded (desktop / RViz only)
+    robot_description = ParameterValue(
+        Command(['xacro ', xacro_file, ' use_sim_plugins:=false']),
+        value_type=str,
+    )
 
     return LaunchDescription([
 

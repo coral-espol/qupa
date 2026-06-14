@@ -1,0 +1,133 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!--
+    led.xacro — Ring of 5 simulated RGB LED links on the QUPA dome.
+
+    Physical layout
+    ───────────────
+    5 equally-spaced point lights at led_radius (0.054 m) and led_height (0.12 m)
+    above base_link, corresponding to ~5 pixels each of the real 24-LED APA102 strip.
+
+    Angles (from +X axis, counter-clockwise):
+      LED 0 →   0°  (front)
+      LED 1 →  72°  (front-left)
+      LED 2 → 144°  (rear-left)
+      LED 3 → 216°  (rear-right)
+      LED 4 → 288°  (front-right)
+
+    Simulation
+    ──────────
+    Each link carries:
+      • A cylinder visual (LED body, initially dark).
+      • A Gazebo Harmonic point-light child (initially off: diffuse 0 0 0).
+
+    led_sim_node changes light colours at runtime by publishing
+    gz::msgs::Light to /world/{world}/light_cmd and by emitting a
+    visualization_msgs/MarkerArray so colours are visible in RViz too.
+
+    The light geometry (attenuation, range) is set here and is the
+    Gazebo "static" baseline; only the diffuse/specular colour is updated
+    at runtime by the node.
+
+    If you need different attenuation or range, edit the values in
+    this file AND update leds_sim.yaml so the node sends the same values
+    when it applies a colour change.
+  -->
+
+  <xacro:property name="led_height" value="0.10"  />  <!-- m above base_link -->
+  <xacro:property name="led_radius" value="0.03" />  <!-- m from z-axis     -->
+
+  <!-- ── Single LED link ──────────────────────────────────────────────── -->
+  <xacro:macro name="led_link" params="idx angle_deg">
+
+    <!-- World-frame position at spawn time -->
+    <xacro:property name="led_x"
+      value="${led_radius * cos(angle_deg * M_PI / 180.0)}" />
+    <xacro:property name="led_y"
+      value="${led_radius * sin(angle_deg * M_PI / 180.0)}" />
+
+    <link name="$(arg tf_prefix)/led_${idx}_link">
+      <!--
+        The visual deliberately has NO name attribute.  Combined with the
+        disableFixedJointLumping flag below, sdformat then auto-names it
+        cleanly and deterministically as  <link_name>_visual, i.e.
+          qupa/led_N_link_visual
+        led_sim_node targets THAT name on /world/{world}/material_color to set
+        the EMISSIVE colour at runtime — what makes the LED visibly glow in
+        Gazebo even on integrated GPUs.  See LedSimNode._visual_name().
+
+        Pitfall: giving the visual an explicit name makes sdformat mangle it to
+          qupa/led_N_link_fixed_joint_lump__<name>_visual
+        which then no longer matches.  Leave it nameless.
+      -->
+      <!-- Tiny inertia so the preserved (non-lumped) link is valid for gz-sim -->
+      <inertial>
+        <mass value="1e-5" />
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <inertia ixx="1e-9" ixy="0.0" ixz="0.0"
+                 iyy="1e-9" iyz="0.0" izz="1e-9" />
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry>
+          <!-- Small cylinder — represents the LED lens -->
+          <cylinder radius="0.0022" length="0.004" />
+        </geometry>
+        <material name="led_off">
+          <color rgba="0.15 0.15 0.15 1" />
+        </material>
+      </visual>
+      <!-- No collision — purely visual -->
+    </link>
+
+    <joint name="led_${idx}_joint" type="fixed">
+      <parent link="$(arg tf_prefix)/base_link" />
+      <child  link="$(arg tf_prefix)/led_${idx}_link" />
+      <origin xyz="${led_x} ${led_y} ${led_height}" rpy="0 0 0" />
+    </joint>
+
+    <!--
+      Keep this fixed joint OUT of sdformat's fixed-joint lumping so the LED
+      link (and its visual "led_N_visual") survives with a clean, stable name
+      that material_color can target.  Both flags are required:
+        disableFixedJointLumping → don't merge child visuals into base_link
+        preserveFixedJoint       → keep it as a real fixed joint in the SDF
+    -->
+    <gazebo reference="led_${idx}_joint">
+      <disableFixedJointLumping>true</disableFixedJointLumping>
+      <preserveFixedJoint>true</preserveFixedJoint>
+    </gazebo>
+
+    <!-- ── How the LED is lit at runtime ───────────────────────────── -->
+    <!--
+      No Gazebo <light> block here.  Two mechanisms drive the colour:
+
+      1. EMISSIVE material (primary, GPU-independent).
+         led_sim_node publishes gz::msgs::MaterialColor to
+         /world/{world}/material_color targeting the visual named
+         "led_N_visual", setting its emissive colour.  This makes the
+         cylinder glow in its own colour regardless of scene lighting —
+         the reliable way to SEE the LED on integrated GPUs (Intel Iris).
+
+      2. WORLD-LEVEL point lights (secondary, real illumination).
+         5 point lights pre-defined in qupa_world.sdf (qupa_led_0…4) are
+         updated via the /world/{world}/light_config SERVICE.  These cast
+         actual light on nearby surfaces when the GPU supports it.
+
+      Model-nested lights are deliberately avoided: they cannot be updated
+      at runtime (light_config only modifies world-level lights).
+    -->
+
+  </xacro:macro>
+
+  <!-- ── Full 5-LED ring ──────────────────────────────────────────────── -->
+  <xacro:macro name="led_ring">
+    <xacro:led_link idx="0" angle_deg="0"   />   <!-- front       -->
+    <xacro:led_link idx="1" angle_deg="72"  />   <!-- front-left  -->
+    <xacro:led_link idx="2" angle_deg="144" />   <!-- rear-left   -->
+    <xacro:led_link idx="3" angle_deg="216" />   <!-- rear-right  -->
+    <xacro:led_link idx="4" angle_deg="288" />   <!-- front-right -->
+  </xacro:macro>
+
+</robot>

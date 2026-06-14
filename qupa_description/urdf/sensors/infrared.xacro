@@ -1,14 +1,17 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg tf_prefix)">
 
-  <!--Xacro Properties-->
-  <xacro:property name="ray_visualizer" value="false" /> <!--Visualize IR sensor in Gazebo-->
-  
-  
-  <!-- IR sensor visual-->
+  <!-- ─────────────────────────────────────────────────────────────────
+       IR SENSOR XACRO  —  QUPA robot
+       Visual meshes for the 6 physical IR sensors (ir_0 … ir_270).
+       The actual range measurement is done by a single GPU-lidar sensor
+       placed at infrared_link that sweeps 360° in 8 samples (45° apart),
+       replicating the real hardware's 8-slot LaserScan output.
+  ───────────────────────────────────────────────────────────────────── -->
+
+  <!-- Individual IR sensor visual (one per physical sensor position) -->
   <xacro:macro name="ir_sensor" params="link_name joint_name
                                         joint_origin_xyz joint_origin_rpy">
-    <!--Link Definition -->
     <link name="$(arg tf_prefix)/${link_name}">
       <inertial>
         <mass value="0.01"/>
@@ -24,7 +27,6 @@
         </material>
       </visual>
     </link>
-    <!-- Joint Definition -->
     <joint name="${joint_name}" type="fixed">
       <origin xyz="${joint_origin_xyz}" rpy="${joint_origin_rpy}" />
       <parent link="$(arg tf_prefix)/base_link" />
@@ -33,30 +35,32 @@
     </joint>
   </xacro:macro>
 
-  <!-- IR sensor Macro-->
+  <!-- ─────────────────────────────────────────────────────────────────
+       INFRARED MACRO  —  single sensing link + Gazebo Harmonic sensor
+       Placed at the geometric centre of the IR ring (z=0.034 m above
+       base_link). The GPU-lidar scans 360° in 8 equal steps (45°),
+       matching the real hardware's 8-slot LaserScan convention:
+         slot 0 → 0°    (E)      slot 1 → 45°   (NE)
+         slot 2 → 90°   (N)      slot 3 → 135°  (NW)   [no physical sensor → inf]
+         slot 4 → 180°  (W)      slot 5 → 225°  (SW)   [no physical sensor → inf]
+         slot 6 → 270°  (S)      slot 7 → 315°  (SE)
+  ───────────────────────────────────────────────────────────────────── -->
   <xacro:macro name="infrared" params="joint_origin_xyz joint_origin_rpy">
-    <!--Link Definition -->
+
     <link name="$(arg tf_prefix)/infrared_link">
       <inertial>
         <mass value="0.0001"/>
         <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
       </inertial>
       <visual>
-        <geometry>
-          <box size="0.01 0.01 0.01"/>
-        </geometry>
-        <material name="gray">
-          <color rgba="0.5 0.5 0.5 1"/>
-        </material>
+        <geometry><box size="0.01 0.01 0.01"/></geometry>
+        <material name="gray"><color rgba="0.5 0.5 0.5 1"/></material>
       </visual>
       <collision>
-        <geometry>
-          <box size="0.01 0.01 0.01"/>
-        </geometry>
+        <geometry><box size="0.01 0.01 0.01"/></geometry>
       </collision>
     </link>
 
-    <!-- Joint Definition -->
     <joint name="infrared_joint" type="fixed">
       <origin xyz="${joint_origin_xyz}" rpy="${joint_origin_rpy}" />
       <parent link="$(arg tf_prefix)/base_link" />
@@ -64,37 +68,52 @@
       <axis xyz="0 0 0" />
     </joint>
 
-    <!-- Gazebo reference and Sensor configuration -->
-    <gazebo reference="infrared_link">
-      <sensor type="ray" name="$(arg tf_prefix)_infrared_sensor">
-        <pose>0 0 0 1.5708 0 0</pose>
-        <visualize>${ray_visualizer}</visualize>
-        <update_rate>30</update_rate>
-        <ray>
-          <scan>
-            <horizontal>
-              <samples>9</samples>
-              <resolution>1</resolution>
-              <min_angle>0</min_angle>
-              <max_angle>${2*M_PI}</max_angle>
-            </horizontal>
-          </scan>
-          <range>
-            <min>0.08</min>
-            <max>0.56</max>
-            <resolution>0.01</resolution>
-          </range>
-          <noise>
-            <type>gaussian</type>
-            <mean>0.0</mean>
-            <stddev>0.005</stddev>
-          </noise>
-        </ray>
-        <plugin name="$(arg tf_prefix)/infrared_plugin" filename="libgazebo_ros_laser.so">
-          <topicName>$(arg tf_prefix)/scan</topicName>
-          <frameName>$(arg tf_prefix)/infrared_link</frameName>
-        </plugin>
-      </sensor>
-    </gazebo>
+    <!-- Gazebo Harmonic: GPU-lidar sensor (gz::sim::systems::Sensors required in world) -->
+    <xacro:if value="${use_sim_plugins}">
+      <gazebo reference="$(arg tf_prefix)/infrared_link">
+        <sensor name="$(arg tf_prefix)_infrared" type="gpu_lidar">
+          <!--
+            Pose inside the sensor rotates the scan plane so that rays are
+            horizontal (parallel to XY of base_link), matching real hardware.
+          -->
+          <pose>0 0 0 1.5708 0 0</pose>
+          <!-- gz-transport topic (bridged to ROS by ros_gz_bridge) -->
+          <topic>/$(arg tf_prefix)/scan</topic>
+          <update_rate>10</update_rate>
+          <gz_frame_id>$(arg tf_prefix)/infrared_link</gz_frame_id>
+          <lidar>
+            <scan>
+              <horizontal>
+                <!--
+                  8 samples over [0, 2π) → rays at 0°, 45°, 90°, 135°,
+                  180°, 225°, 270°, 315° — identical to real LaserScan layout.
+                  Slots 3 (135°) and 5 (225°) have no physical sensor; the
+                  hardware node publishes inf there. Gazebo will publish the
+                  real simulated range for all 8 slots.
+                -->
+                <samples>9</samples>
+                <resolution>1</resolution>
+                <min_angle>0</min_angle>
+                <max_angle>6.28318530718</max_angle>
+              </horizontal>
+            </scan>
+            <range>
+              <min>0.08</min>   <!-- 12 cm — clears robot body (~6 cm radius) -->
+              <max>0.50</max>   <!-- 50 cm -->
+              <resolution>0.01</resolution>
+            </range>
+            <noise>
+              <type>gaussian</type>
+              <mean>0.0</mean>
+              <stddev>0.005</stddev>
+            </noise>
+          </lidar>
+          <always_on>true</always_on>
+          <visualize>true</visualize>
+        </sensor>
+      </gazebo>
+    </xacro:if>
+
   </xacro:macro>
+
 </robot>

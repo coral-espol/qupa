@@ -4,6 +4,18 @@
     <xacro:property name="base_mass" value="1" />
     <xacro:property name="base_scale" value="1 1 1" />
 
+    <!-- Real robot is white -->
+    <material name="white">
+        <color rgba="0.9 0.9 0.9 1.0" />
+    </material>
+
+    <!-- Acrylic dome: WHITE translucent diffuser the LEDs glow through.
+         acrylic_alpha: 0 = invisible, 1 = fully opaque. Lower = lighter/clearer. -->
+    <xacro:property name="acrylic_alpha" value="0.90" />
+    <material name="acrylic">
+        <color rgba="1.0 1.0 1.0 ${acrylic_alpha}" />
+    </material>
+
     <xacro:macro name="base">
     
         <!-- <link name="base_footprint"/>
@@ -26,20 +38,56 @@
                     iyz="0"
                     izz="0.00180" />
                 </inertial>
-            <visual>
+            <!-- Body shell (opaque). The acrylic dome lives on its OWN link
+                 (acrylic_dome_link, below) so led_sim_node can drive its
+                 emissive colour by a clean, stable visual name. -->
+            <visual name="base_body">
                 <origin xyz="0 0 0" rpy="0 0 0" />
                 <geometry>
-                    <mesh filename="package://qupa_description/meshes/qupa.dae" scale="${base_scale}" />
+                    <mesh filename="package://qupa_description/meshes/base.stl" scale="${base_scale}" />
                 </geometry>
+                <material name="white" />
             </visual>
             <collision>
                 <origin xyz="0 0 0" rpy="0 0 0" />
                 <geometry>
-                    <mesh filename="package://qupa_description/meshes/qupa.dae" scale="${base_scale}" />
+                    <mesh filename="package://qupa_description/meshes/base.stl" scale="${base_scale}" />
                 </geometry>
                 <self_collide>false</self_collide>
             </collision>
         </link>
+
+        <!-- ── Acrylic dome — own link so its visual has a clean, stable name
+             (qupa/acrylic_dome_link_visual) that led_sim_node targets via
+             material_color to make the dome GLOW in the LED colour (the
+             "difuminado" look).  Nameless visual + disableFixedJointLumping →
+             sdformat auto-names it <link>_visual.  Visual only. -->
+        <link name="$(arg tf_prefix)/acrylic_dome_link">
+            <inertial>
+                <mass value="1e-5" />
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <inertia ixx="1e-9" ixy="0" ixz="0"
+                         iyy="1e-9" iyz="0" izz="1e-9" />
+            </inertial>
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <mesh filename="package://qupa_description/meshes/dome.stl" scale="${base_scale}" />
+                </geometry>
+                <material name="acrylic" />
+            </visual>
+        </link>
+
+        <joint name="acrylic_dome_joint" type="fixed">
+            <parent link="$(arg tf_prefix)/base_link" />
+            <child  link="$(arg tf_prefix)/acrylic_dome_link" />
+            <origin xyz="0 0 0" rpy="0 0 0" />
+        </joint>
+
+        <gazebo reference="acrylic_dome_joint">
+            <disableFixedJointLumping>true</disableFixedJointLumping>
+            <preserveFixedJoint>true</preserveFixedJoint>
+        </gazebo>
 
         <joint name="imu_joint" type="fixed">
             <parent link="$(arg tf_prefix)/base_link"/>

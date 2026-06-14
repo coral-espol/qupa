@@ -2,11 +2,15 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg tf_prefix)">
 
     <xacro:property name="M_PI" value="3.1415926535897931" />
-    <xacro:property name="tf_prefix" value="$(arg tf_prefix)"/>
-    <xacro:property name="high_res" value="$(arg high_res)" lazy_eval="false"/>
-    <xacro:property name="module" value="$(arg module)" lazy_eval="false"/>
+    <xacro:property name="tf_prefix"       value="$(arg tf_prefix)"/>
+    <xacro:property name="high_res"        value="$(arg high_res)"        lazy_eval="false"/>
+    <xacro:property name="module"          value="$(arg module)"          lazy_eval="false"/>
+    <xacro:property name="use_sim_plugins" value="$(arg use_sim_plugins)" lazy_eval="false"/>
     <xacro:property name="base_height" value="0.0" />
     <xacro:property name="mirror_height" value="${base_height + 0.2}" />
+    <!-- IR ring inset: <1 pulls the IR sensors radially INWARD (more recessed
+         into the body). 1.0 = original edge position; 0.82 ≈ 1 cm inward. -->
+    <xacro:property name="ir_inset_scale" value="0.82" />
     <!--Include Xacro files -->
     <xacro:include filename="$(find qupa_description)/urdf/wheels/wheel.xacro" />                   <!--wheel properties and links definitions-->
     <xacro:include filename="$(find qupa_description)/urdf/sensors/infrared.xacro" />               <!--infrared sensor properties and links definitions-->
@@ -15,7 +19,8 @@
     <xacro:include filename="$(find qupa_description)/urdf/bases/base.xacro" />                     <!--base properties and links definitions-->
     <xacro:include filename="$(find qupa_description)/urdf/gazebo_plugins.xacro" />                 <!--Gazebo plugins definitions--> 
     <xacro:include filename="$(find qupa_description)/urdf/sensors/color.xacro" />
-    <xacro:include filename="$(find qupa_description)/urdf/wheels/caster.xacro" />    
+    <xacro:include filename="$(find qupa_description)/urdf/sensors/led.xacro" />
+    <xacro:include filename="$(find qupa_description)/urdf/wheels/caster.xacro" />
     
     <material name="dark">
         <color rgba="0.3 0.3 0.3 1.0"/>
@@ -121,41 +126,46 @@
         joint_origin_xyz="0.00 0 0.034"
         joint_origin_rpy="1.5708 0 0" />
 
-    <xacro:ir_sensor link_name="ir_0" 
-        joint_name="ir_0_joint" 
-        joint_origin_xyz="0.004 -0.056 0.034"
+    <xacro:ir_sensor link_name="ir_0"
+        joint_name="ir_0_joint"
+        joint_origin_xyz="${0.004*ir_inset_scale} ${-0.056*ir_inset_scale} 0.034"
         joint_origin_rpy="${M_PI/2} 0 0" />
 
-    <xacro:ir_sensor link_name="ir_45" 
-        joint_name="ir_45_joint" 
-        joint_origin_xyz="0.04159 -0.0376 0.034" 
+    <xacro:ir_sensor link_name="ir_45"
+        joint_name="ir_45_joint"
+        joint_origin_xyz="${0.04159*ir_inset_scale} ${-0.0376*ir_inset_scale} 0.034"
         joint_origin_rpy="${M_PI/2} 0 ${M_PI/4}" />
-    
-    <xacro:ir_sensor link_name="ir_90" 
-        joint_name="ir_90_joint" 
-        joint_origin_xyz="0.056 0 0.034" 
+
+    <xacro:ir_sensor link_name="ir_90"
+        joint_name="ir_90_joint"
+        joint_origin_xyz="${0.056*ir_inset_scale} 0 0.034"
         joint_origin_rpy="${M_PI/2} 0 ${M_PI/2}" />
-    
-    <xacro:ir_sensor link_name="ir_135" 
-        joint_name="ir_135_joint" 
-        joint_origin_xyz="0.04159 0.0376 0.034" 
+
+    <xacro:ir_sensor link_name="ir_135"
+        joint_name="ir_135_joint"
+        joint_origin_xyz="${0.04159*ir_inset_scale} ${0.0376*ir_inset_scale} 0.034"
         joint_origin_rpy="${M_PI/2} 0 ${3*M_PI/4}" />
 
-    <xacro:ir_sensor link_name="ir_180" 
-        joint_name="ir_180_joint" 
-        joint_origin_xyz="0.004 0.056 0.034" 
+    <xacro:ir_sensor link_name="ir_180"
+        joint_name="ir_180_joint"
+        joint_origin_xyz="${0.004*ir_inset_scale} ${0.056*ir_inset_scale} 0.034"
         joint_origin_rpy="${M_PI/2} 0 ${M_PI}" />
 
-    <xacro:ir_sensor link_name="ir_270" 
-        joint_name="ir_270_joint" 
-        joint_origin_xyz="-0.056 0 0.034" 
+    <xacro:ir_sensor link_name="ir_270"
+        joint_name="ir_270_joint"
+        joint_origin_xyz="${-0.056*ir_inset_scale} 0 0.034"
         joint_origin_rpy="${M_PI/2} 0 ${-M_PI/2}" />
 
 
 
 
+    <!-- Floor colour sensor — always present regardless of camera mode -->
+    <xacro:color_camera/>
+
+    <!-- LED ring — 5 point lights on the dome -->
+    <xacro:led_ring/>
+
     <xacro:if value="${high_res}">
-        <!-- <xacro:color_camera/> -->
         <xacro:real_cam/>
     </xacro:if>
     <xacro:unless value="${high_res}">
