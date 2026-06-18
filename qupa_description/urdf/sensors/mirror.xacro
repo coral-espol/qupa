@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="$(arg tf_prefix)">
 
-    <xacro:property name="camera_height" value="0.20" />
+    <xacro:property name="camera_height" value="0.18" />
 
     <!-- ─────────────────────────────────────────────────────────────────
          MIRROR — physical mesh (always present, no sensor)
@@ -122,8 +122,8 @@
                         <!-- SDF max is 2π = 6.28318…; 6.2832 exceeds it by rounding -->
                         <horizontal_fov>6.28318</horizontal_fov>
                         <image>
-                            <width>720</width>
-                            <height>720</height>
+                            <width>640</width>
+                            <height>480</height>
                             <format>R8G8B8</format>
                         </image>
                         <clip>
@@ -138,24 +138,37 @@
                         <lens>
                             <type>custom</type>
                             <custom_function>
-                                <c1>1.05</c1>   <!-- radial scaling -->
-                                <c2>3.0</c2>    <!-- angle scaling  -->
-                                <f>1.0</f>      <!-- offset         -->
-                                <fun>tan</fun>  <!-- projection: tan, sin or id -->
+                                <!--
+                                    FÓRMULA REAL del shader (wide_lens_map_fp.glsl):
+                                      r = c1 * f * fun(theta / c2)
+                                    c2 DIVIDE theta (no multiplica).
+                                    Con scale_to_hfov=true y hfov=360°, Gazebo ignora c1 y f
+                                    y calcula f_eff = 1/fun(180°/c2).
+
+                                    Con fun=sin, c2=2:
+                                      f_eff = 1/sin(90°) = 1.0  →  sin monótona en [0°,180°] ✓
+                                      θ=  0° → r = 0.000  (centro)
+                                      θ= 90° → r = sin(45°) = 0.707  (horizonte al 70.7 %)
+                                      θ=101° → r = sin(50.5°) = 0.771  (corte al 77.1 %)
+                                      θ=180° → r = 1.000  (punto de normalización)
+
+                                    | anterior: c1=1.05 c2=3.0 f=1.0 fun=tan cutoff=2.5
+                                -->
+                                <c1>1.0</c1>
+                                <c2>2.0</c2>    <!-- theta/c2=theta/2: sin monótona hasta 180° -->
+                                <f>1.0</f>      <!-- ignorado por scale_to_hfov=true -->
+                                <fun>sin</fun>
                             </custom_function>
-                            <!-- Keep horizontal_fov as defined above -->
                             <scale_to_hfov>true</scale_to_hfov>
-                            <!-- Clip rays beyond this half-angle (≈143°) -->
-                            <cutoff_angle>2.5</cutoff_angle>
-                            <!-- Cubemap resolution — trade-off: quality vs GPU cost -->
+                            <!-- cutoff = 101° = φ_max del espejo real | anterior: 2.5 rad -->
+                            <cutoff_angle>1.763</cutoff_angle>
                             <env_texture_size>512</env_texture_size>
                         </lens>
                     </camera>
                     <always_on>true</always_on>
-                    <update_rate>10</update_rate>  <!-- real node runs at 3 Hz; 10 Hz gives margin -->
+                    <update_rate>5</update_rate>  <!-- real node runs at 3 Hz; 10 Hz gives margin -->
                     <!-- gz-transport topic consumed by camera_sim_node via gz-transport Python -->
                     <topic>/$(arg tf_prefix)/camera/image_raw</topic>
-                    <gz_frame_id>$(arg tf_prefix)/camera_link</gz_frame_id>
                 </sensor>
             </gazebo>
         </xacro:if>

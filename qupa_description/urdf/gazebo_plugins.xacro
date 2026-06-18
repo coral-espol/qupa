@@ -10,6 +10,21 @@
   <xacro:if value="${use_sim_plugins}">
 
     <!-- ───────────────────────────────────────────────────────────────
+         JOINT STATE PUBLISHER  (gz::sim::systems::JointStatePublisher)
+         Publishes wheel joint positions to gz-transport so the
+         ros_gz_bridge can forward them to ROS /joint_states and
+         robot_state_publisher can compute the wheel TF frames.
+    ─────────────────────────────────────────────────────────────────── -->
+    <gazebo>
+      <plugin filename="gz-sim-joint-state-publisher-system"
+              name="gz::sim::systems::JointStatePublisher">
+        <topic>/$(arg tf_prefix)/joint_states</topic>
+        <joint_name>L_wheel_joint</joint_name>
+        <joint_name>R_wheel_joint</joint_name>
+      </plugin>
+    </gazebo>
+
+    <!-- ───────────────────────────────────────────────────────────────
          DIFFERENTIAL DRIVE  (gz::sim::systems::DiffDrive)
          Publishes:  /{tf_prefix}/odom   (gz topic → ros_gz_bridge)
                      /tf                 (gz topic → ros_gz_bridge)

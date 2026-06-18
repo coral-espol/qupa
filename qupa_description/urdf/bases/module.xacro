@@ -2,7 +2,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro">
 
     <xacro:property name="base_mass" value="1" />
-    <xacro:property name="base_scale" value="1 1 1" />
+    <xacro:property name="base_scale" value="0.85 0.85 1" />
 
     <!--Base with Module installed-->
     <xacro:macro name="module">
@@ -19,20 +19,51 @@
                     iyz="0"
                     izz="0.00180" />
                 </inertial>
+            <!-- base_w_module.stl: base sin domo, con soporte del módulo -->
             <visual>
                 <origin xyz="0 0 0" rpy="0 0 0" />
                 <geometry>
-                    <mesh filename="package://qupa_description/meshes/module.dae" scale="${base_scale}" />
+                    <mesh filename="package://qupa_description/meshes/base_w_module.stl" scale="${base_scale}" />
                 </geometry>
+                <material name="white" />
             </visual>
             <collision>
                 <origin xyz="0 0 0" rpy="0 0 0" />
                 <geometry>
-                    <mesh filename="package://qupa_description/meshes/module.dae" scale="${base_scale}" />
+                    <mesh filename="package://qupa_description/meshes/base_w_module.stl" scale="${base_scale}" />
                 </geometry>
                 <self_collide>false</self_collide>
             </collision>
         </link>
+
+        <!-- Domo acrílico — link separado para que led_sim_node pueda cambiar
+             su color emissivo igual que en la config sin módulo. -->
+        <link name="$(arg tf_prefix)/acrylic_dome_link">
+            <inertial>
+                <mass value="1e-5" />
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <inertia ixx="1e-9" ixy="0" ixz="0"
+                         iyy="1e-9" iyz="0" izz="1e-9" />
+            </inertial>
+            <visual>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <geometry>
+                    <mesh filename="package://qupa_description/meshes/dome.stl" scale="${base_scale}" />
+                </geometry>
+                <material name="acrylic" />
+            </visual>
+        </link>
+
+        <joint name="acrylic_dome_joint" type="fixed">
+            <parent link="$(arg tf_prefix)/base_link" />
+            <child  link="$(arg tf_prefix)/acrylic_dome_link" />
+            <origin xyz="0 0 0.048" rpy="0 0 0" />
+        </joint>
+
+        <gazebo reference="acrylic_dome_joint">
+            <disableFixedJointLumping>true</disableFixedJointLumping>
+            <preserveFixedJoint>true</preserveFixedJoint>
+        </gazebo>
 
         <joint name="imu_joint" type="fixed">
             <parent link="$(arg tf_prefix)/base_link"/>
@@ -100,6 +131,7 @@
             <child link="${prefix}_Link_1"/>
             <axis xyz="0 0 1"/>
             <limit lower="-3.1416" upper="3.1416" effort="100" velocity="1.0"/>
+            <dynamics damping="0.1" friction="0.0"/>
         </joint>
     </xacro:macro>
 
@@ -138,11 +170,26 @@
             <parent link="Left_Link_1" />
             <child link="Left_Link_2" />
             <axis xyz="0 0 1" />
-            <limit  lower="-3.1416"
-                    upper="3.1416"
-                    effort="10"
-                    velocity="1.0" />
+            <limit lower="-3.1416" upper="3.1416" effort="10" velocity="1.0" />
+            <dynamics damping="0.1" friction="0.1"/>
         </joint>
+
+        <!-- Closure tip: punto de cierre fijo a Left_Link_2.
+             Pose tomada del joint "closure" original del URDF de Gazebo Classic. -->
+        <link name="Left_closure_tip">
+            <inertial>
+                <mass value="0.001"/>
+                <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+            </inertial>
+        </link>
+        <joint name="Left_closure_tip_joint" type="fixed">
+            <origin xyz="0.09 0 0" rpy="3.1416 0 -0.33145"/>
+            <parent link="Left_Link_2"/>
+            <child link="Left_closure_tip"/>
+        </joint>
+        <gazebo reference="Left_closure_tip_joint">
+            <preserveFixedJoint>true</preserveFixedJoint>
+        </gazebo>
     </xacro:macro>
 
     <!--Link 3-->
@@ -175,16 +222,31 @@
                 </geometry>
             </collision>
         </link>
-        <joint name="Right_joint_2"  type="revolute">
+        <joint name="Right_joint_2" type="revolute">
             <origin xyz="${xyz}" rpy="${rpy}" />
             <parent link="Right_Link_1" />
             <child  link="Right_Link_2" />
             <axis   xyz="0 0 1" />
-            <limit
-                lower="-3.1416"
-                upper="3.1416"
-                effort="10"
-                velocity="1.0" />
+            <limit lower="-3.1416" upper="3.1416" effort="10" velocity="1.0" />
+            <dynamics damping="0.1" friction="0.1"/>
+        </joint>
+
+        <!-- Closure dummy: link en la PUNTA de Right_Link_2 (xyz=0.09 0 0 en frame local).
+             El DetachableJoint suelda Left_closure_tip con este punto, cerrando la cadena.
+             Revolute Z: equivalente al joint "closure" type="revolute" del URDF ROS1. -->
+        <link name="Right_closure_dummy">
+            <inertial>
+                <mass value="0.001"/>
+                <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6"/>
+            </inertial>
+        </link>
+        <joint name="Right_closure_joint" type="revolute">
+            <origin xyz="0.09 0 0" rpy="3.1416 0 -0.93631"/>
+            <parent link="Right_Link_2"/>
+            <child link="Right_closure_dummy"/>
+            <axis xyz="0 0 1"/>
+            <limit lower="-3.14" upper="3.14" effort="0" velocity="10"/>
+            <dynamics damping="0.1" friction="0.0"/>
         </joint>
     </xacro:macro>
 
@@ -241,24 +303,19 @@
                 upper="0.04"
                 effort="10"
                 velocity="0.01" />
+            <dynamics damping="0.1" friction="0.0"/>
         </joint>
 
-        <!-- Joint pasivo entre Left_Link_2 y closure_link -->
-          <gazebo>
-            <joint name="closure" type="revolute">
-            <parent>Left_Link_2</parent>
-            <child>Right_Link_2</child>
-            <pose>0.09 0 0 3.1416 0 -0.33145</pose>
-            <axis>
-                <xyz>0 0 1</xyz>
-                <limit>
-                <lower>-6.2</lower>
-                <upper>6.2</upper>
-                </limit>
-            </axis>
-            </joint>
+        <!-- DetachableJoint: suelda Left_closure_tip con Right_closure_dummy,
+             cerrando físicamente la cadena. DART + PGS solver resuelve el loop. -->
+        <gazebo>
+            <plugin filename="libgz-sim-detachable-joint-system.so"
+                    name="gz::sim::systems::DetachableJoint">
+                <parent_link>Left_closure_tip</parent_link>
+                <child_model>$(arg tf_prefix)</child_model>
+                <child_link>Right_closure_dummy</child_link>
+            </plugin>
         </gazebo>
-
 
     </xacro:macro>
 
