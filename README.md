@@ -188,19 +188,19 @@ Possible labels: `CYAN`, `MAGENTA`, `YELLOW`, `UNKNOWN`.
 
 ```bash
 # Set all LEDs to one colour
-ros2 service call /qupa_3A/led_node/set qupa_msgs/srv/LEDCommand \
+ros2 service call /qupa_3A/set qupa_msgs/srv/LEDCommand \
   "{command: '{\"mode\": \"set_all\", \"rgb\": [0, 0, 255]}'}"
 
 # Set a specific index range
-ros2 service call /qupa_3A/led_node/set qupa_msgs/srv/LEDCommand \
+ros2 service call /qupa_3A/set qupa_msgs/srv/LEDCommand \
   "{command: '{\"mode\": \"set_segment\", \"rgb\": [0, 255, 0], \"from\": 0, \"to\": 7}'}"
 
 # Set a named segment (seg0 / seg1 / seg2)
-ros2 service call /qupa_3A/led_node/set qupa_msgs/srv/LEDCommand \
+ros2 service call /qupa_3A/set qupa_msgs/srv/LEDCommand \
   "{command: '{\"mode\": \"set_named_segment\", \"rgb\": [255, 0, 0], \"segment\": \"seg1\"}'}"
 
 # Clear (turn off all)
-ros2 service call /qupa_3A/led_node/set qupa_msgs/srv/LEDCommand \
+ros2 service call /qupa_3A/set qupa_msgs/srv/LEDCommand \
   "{command: '{\"mode\": \"clear\"}'}"
 ```
 
