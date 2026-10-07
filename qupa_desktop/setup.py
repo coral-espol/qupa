@@ -29,6 +29,7 @@ setup(
             'calibrate_range = qupa_desktop.calibrate_range:main',
             'target_ranger   = qupa_desktop.target_ranger_node:main',
             'shape_observer  = qupa_desktop.shape_observer_node:main',
+            'target_logger   = qupa_desktop.target_logger_node:main',
         ],
     },
 )
