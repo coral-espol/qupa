@@ -28,6 +28,7 @@ except ImportError:
     _PICAMERA2 = False
 
 PUBLISH_HZ_DEFAULT = 3.0
+SENSOR_FPS_DEFAULT = 5.0   # cap sensor/ISP rate — otherwise it free-runs at ~30 fps
 
 
 # ── Mask helpers ──────────────────────────────────────────────────────────────
@@ -81,6 +82,7 @@ class CameraNode(Node):
         self.declare_parameter('image_width',    640)
         self.declare_parameter('image_height',   480)
         self.declare_parameter('publish_hz',     PUBLISH_HZ_DEFAULT)
+        self.declare_parameter('sensor_fps',     SENSOR_FPS_DEFAULT)
         self.declare_parameter('warmup_s',       2.0)
         self.declare_parameter('vflip',          True)
         self.declare_parameter('inner_radius_px', 64)
@@ -107,6 +109,7 @@ class CameraNode(Node):
         W          = self.get_parameter('image_width').value
         H          = self.get_parameter('image_height').value
         publish_hz = self.get_parameter('publish_hz').value
+        sensor_fps = max(self.get_parameter('sensor_fps').value, publish_hz)
         warmup_s   = self.get_parameter('warmup_s').value
         self._vflip = self.get_parameter('vflip').value
         self._W, self._H = W, H
@@ -141,9 +144,12 @@ class CameraNode(Node):
             return
 
         self._cam = Picamera2()
+        frame_us = int(1e6 / sensor_fps)
         cfg = self._cam.create_video_configuration(
             main={'size': (W, H), 'format': 'RGB888'},
             transform=Transform(hflip=0, vflip=1 if self._vflip else 0),
+            controls={'FrameDurationLimits': (frame_us, frame_us)},
+            buffer_count=2,
         )
         self._cam.configure(cfg)
         self._cam.start()
@@ -153,7 +159,9 @@ class CameraNode(Node):
 
         self._pub = self.create_publisher(DetectionArray, 'camera/detections', 10)
         self._timer = self.create_timer(1.0 / publish_hz, self._timer_cb)
-        self.get_logger().info(f'Camera node ready — {W}×{H} @ {publish_hz:.0f} Hz')
+        self.get_logger().info(
+            f'Camera node ready — {W}×{H} @ {publish_hz:.0f} Hz (sensor {sensor_fps:.0f} fps)'
+        )
 
     def _build_mask(self):
         W, H = self._W, self._H

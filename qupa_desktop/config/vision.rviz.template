@@ -1,0 +1,66 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Class: ""
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid 10 cm
+      Enabled: true
+      Cell Size: 0.1
+      Plane Cell Count: 24
+      Color: 160; 160; 164
+      Alpha: 0.5
+      Reference Frame: <Fixed Frame>
+    - Class: rviz_default_plugins/Grid
+      Name: Grid 50 cm
+      Enabled: true
+      Cell Size: 0.5
+      Plane Cell Count: 6
+      Color: 220; 220; 220
+      Alpha: 0.8
+      Line Style:
+        Line Width: 0.004
+        Value: Billboards
+      Reference Frame: <Fixed Frame>
+    - Class: rviz_default_plugins/Axes
+      Name: Robot (x = frente)
+      Enabled: true
+      Length: 0.15
+      Radius: 0.01
+      Reference Frame: <Fixed Frame>
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Objetivos
+      Enabled: true
+      Topic:
+        Value: /@NS@/camera/targets_viz
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 5
+    - Class: rviz_default_plugins/MarkerArray
+      Name: Figuras
+      Enabled: true
+      Topic:
+        Value: /@NS@/shape/viz
+        Reliability Policy: Reliable
+        Durability Policy: Volatile
+        History Policy: Keep Last
+        Depth: 5
+  Global Options:
+    Background Color: 48; 48; 48
+    Fixed Frame: @NS@/base_link
+    Frame Rate: 15
+  Tools:
+    - Class: rviz_default_plugins/MoveCamera
+  Views:
+    Current:
+      Class: rviz_default_plugins/TopDownOrtho
+      Name: Desde arriba
+      Scale: 400
+      X: 0
+      Y: 0
+      Angle: -1.5708   # x (frente del robot) hacia arriba, y (izquierda) a la izquierda
+Window Geometry:
+  Width: 1000
+  Height: 800
