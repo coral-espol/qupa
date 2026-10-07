@@ -15,7 +15,7 @@ setup(
         (os.path.join('share', package_name, 'launch'),
             glob('launch/*.py')),
         (os.path.join('share', package_name, 'config'),
-            glob('config/*.rviz')),
+            glob('config/*.rviz') + glob('config/*.yaml')),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
@@ -25,7 +25,10 @@ setup(
     license='MIT',
     entry_points={
         'console_scripts': [
-            'calibrate_mask = qupa_desktop.calibrate_mask:main',
+            'calibrate_mask  = qupa_desktop.calibrate_mask:main',
+            'calibrate_range = qupa_desktop.calibrate_range:main',
+            'target_ranger   = qupa_desktop.target_ranger_node:main',
+            'shape_observer  = qupa_desktop.shape_observer_node:main',
         ],
     },
 )
