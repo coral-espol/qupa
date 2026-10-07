@@ -13,6 +13,8 @@ Publishes:
   camera/targets_viz  visualization_msgs/MarkerArray
 """
 
+import math
+
 import rclpy
 from rclpy.node import Node
 from qupa_msgs.msg import DetectionArray, Target, TargetArray
@@ -37,6 +39,7 @@ class TargetRangerNode(Node):
         self.declare_parameter('range_min_px',     0.0)
         self.declare_parameter('range_max_px',     1000.0)
         self.declare_parameter('base_frame',       '')
+        self.declare_parameter('max_distance_m',   1.5)   # beyond → distance unknown (NaN)
 
         p = {n: self.get_parameter(n).value for n in MirrorModel.PARAM_NAMES}
         self._model = MirrorModel.from_params(p)
@@ -44,6 +47,7 @@ class TargetRangerNode(Node):
         ns = self.get_namespace().strip('/')
         self._frame = self.get_parameter('base_frame').value or \
             (f'{ns}/base_link' if ns else 'base_link')
+        self._max_d = self.get_parameter('max_distance_m').value
 
         if not any(p['range_coeffs']):
             self.get_logger().warn(
@@ -66,6 +70,10 @@ class TargetRangerNode(Node):
 
         for i, det in enumerate(msg.targets):
             d, th, x, y, r, ok = self._model.project(det.cx, det.cy)
+            if not 0.0 < d <= self._max_d:
+                # e.g. target lifted off the floor: bearing is still valid, range is not
+                d = x = y = float('nan')
+                ok = False
             t = Target()
             t.color       = det.color
             t.distance_m  = float(d)
@@ -76,6 +84,8 @@ class TargetRangerNode(Node):
             t.area        = det.area
             t.in_range    = bool(ok)
             out.targets.append(t)
+            if math.isnan(t.x):
+                continue    # no position to draw
 
             m = Marker()
             m.header = out.header

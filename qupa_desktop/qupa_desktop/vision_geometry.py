@@ -10,6 +10,8 @@ Model (all parameters come from calibrate_range):
   theta   = wrap(angle_direction * (phi - angle_offset))   (REP-103 bearing)
   d_m     = poly(r_px)          if range_model == 'poly'
           = exp(poly(r_px))     if range_model == 'log_poly'
+            (outside [range_min_px, range_max_px] the curve is extended linearly
+             with its end slope — the fitted polynomial explodes when extrapolated)
 
 Coefficients are numpy.polyfit order (highest power first).
 """
@@ -50,9 +52,20 @@ class MirrorModel:
     def bearing(self, phi):
         return wrap_pi(self.dir * (np.asarray(phi, dtype=float) - self.phi0))
 
-    def distance(self, r_px):
-        y = np.polyval(self.coeffs, np.asarray(r_px, dtype=float))
+    def _curve(self, r):
+        y = np.polyval(self.coeffs, r)
         return np.exp(y) if self.range_model == 'log_poly' else y
+
+    def distance(self, r_px):
+        r = np.asarray(r_px, dtype=float)
+        d = self._curve(np.clip(r, self.r_min, self.r_max))
+        h = 0.5     # px, for the end slopes
+        lo_slope = (self._curve(self.r_min + h) - self._curve(self.r_min)) / h
+        hi_slope = (self._curve(self.r_max) - self._curve(self.r_max - h)) / h
+        # distance must not grow towards the centre (fit can be flat near r_min)
+        d = np.where(r < self.r_min, d + (r - self.r_min) * max(lo_slope, 0.0), d)
+        d = np.where(r > self.r_max, d + (r - self.r_max) * hi_slope, d)
+        return d
 
     def in_range(self, r_px):
         r = np.asarray(r_px, dtype=float)
