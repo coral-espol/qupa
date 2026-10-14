@@ -67,9 +67,9 @@ def _find_all_contours(hsv, lower, upper, min_area):
 def _centroid(contour):
     M = cv2.moments(contour)
     if M['m00'] > 1e-9:
-        return int(M['m10'] / M['m00']), int(M['m01'] / M['m00'])
+        return (M['m10'] / M['m00']), (M['m01'] / M['m00'])
     x, y, w, h = cv2.boundingRect(contour)
-    return x + w // 2, y + h // 2
+    return x + w / 2.0, y + h / 2.0
 
 
 # ── Node ──────────────────────────────────────────────────────────────────────
@@ -151,6 +151,7 @@ class CameraNode(Node):
             controls={'FrameDurationLimits': (frame_us, frame_us)},
             buffer_count=2,
         )
+
         self._cam.configure(cfg)
         self._cam.start()
         self.get_logger().info(f'Camera warming up for {warmup_s} s …')
@@ -196,7 +197,9 @@ class CameraNode(Node):
         self._ring_roi = ring[y0:y1, x0:x1]
 
     def _timer_cb(self):
-        frame = self._cam.capture_array('main')  # BGR
+        request = self._cam.capture_request()
+        frame   = request.make_array('main').copy()  # BGR
+        request.release()
         now   = self.get_clock().now().to_msg()
 
         rx0, ry0, rx1, ry1 = self._roi
