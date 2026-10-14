@@ -72,6 +72,22 @@ ros2 run qupa_desktop calibrate_range eval \
 
 Imprime el RMSE y guarda una gráfica PNG. `eval` calcula el RMSE sobre los puntos de validación: **ese es el número que va al paper**.
 
+### Error contra distancia
+
+```bash
+ros2 run qupa_desktop calibrate_range curve calib_nuevo.csv \
+    --yaml ~/qupa_ros/src/qupa/qupa_desktop/config/vision_qupa_AE.yaml
+```
+
+Para cada distancia grabada, el comando calcula:
+- **cm/px**: cuánto representa un píxel a esa distancia.
+- **Ruido**: cuánto varía la distancia entre frames con el objetivo quieto.
+- **Error de validación cruzada**: cada distancia se predice con un modelo ajustado *sin* ella. Es el error esperable en una distancia que no se calibró.
+
+Con `--yaml` (se puede repetir) se compara además una calibración anterior sobre estos mismos datos, por ejemplo la de píxeles enteros contra la nueva subpíxel.
+
+El comando guarda `<csv>_curve.png`. Para que la curva tenga sentido, graba puntos cada 10 cm, de 20 cm a 1 m.
+
 ---
 
 ## Uso

@@ -21,7 +21,7 @@ import sys
 
 import numpy as np
 
-GOOD_MIN_M, GOOD_MAX_M = 0.20, 0.60   # zone where the distance is accurate
+GOOD_MIN_M, GOOD_MAX_M = 0.20, 1.00   # zone where the distance is accurate (< 3 cm, subpixel calib)
 POST_HALF_WIDTH_DEG = 12.0            # approx. blind wedge of each mirror post (±90°)
 EXPECTED_HZ = 2.0
 MAX_DISTANCE_M = 1.5                  # farther → treated as unknown (e.g. target lifted)

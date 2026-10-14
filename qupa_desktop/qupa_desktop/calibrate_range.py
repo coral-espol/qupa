@@ -11,6 +11,8 @@ Modos:
   ros2 run qupa_desktop calibrate_range record --ns qupa_3A --csv datos.csv
   ros2 run qupa_desktop calibrate_range fit datos.csv --out vision_qupa_3A.yaml
   ros2 run qupa_desktop calibrate_range eval vision_qupa_3A.yaml validacion.csv
+  ros2 run qupa_desktop calibrate_range curve datos.csv [--yaml viejo.yaml]
+                      error por distancia (validación cruzada) + gráfica
 
 Comandos dentro de 'record':
   p <d_m> <ang_deg>   graba un punto: objetivo a d_m metros del centro del robot,
@@ -287,6 +289,149 @@ def cmd_eval(args):
     return 0
 
 
+# ── Error vs distance ─────────────────────────────────────────────────────────
+
+def _quiet(fn, *a, **kw):
+    """Run fn without its progress prints."""
+    import contextlib
+    import io
+    with contextlib.redirect_stdout(io.StringIO()):
+        return fn(*a, **kw)
+
+
+def _errors(mm, rows):
+    """Per-point (e_d [m], e_th [rad], r_px)."""
+    cx = np.array([r['cx'] for r in rows])
+    cy = np.array([r['cy'] for r in rows])
+    d_true = np.array([r['d_true_m'] for r in rows])
+    th_true = np.radians([r['theta_true_deg'] for r in rows])
+    d, th, _, _, r_px, _ = mm.project(cx, cy)
+    return d - d_true, wrap_pi(th - th_true), r_px
+
+
+def _cross_validated(rows):
+    """Leave-one-distance-out errors: each distance is predicted by a model
+    fitted without it (centre fixed from all data so the circle fit survives).
+    Outside the remaining points the model extrapolates — that is the honest
+    error for distances not in the calibration."""
+    mm_all, _ = _quiet(fit_model, rows)
+    center = (mm_all.cx0, mm_all.cy0)
+    d_true = np.array([r['d_true_m'] for r in rows])
+    e_d = np.full(len(rows), np.nan)
+    e_th = np.full(len(rows), np.nan)
+    for u in np.unique(np.round(d_true, 3)):
+        out = np.isclose(d_true, u, atol=5e-4)
+        train = [r for r, o in zip(rows, out) if not o]
+        test = [r for r, o in zip(rows, out) if o]
+        try:
+            mm, _ = _quiet(fit_model, train, center)
+        except ValueError:
+            continue
+        if len({round(r['theta_true_deg']) for r in train}) < 3:
+            # e.g. only 0° left: offset/direction are undetermined → keep the full fit's
+            mm.phi0, mm.dir = mm_all.phi0, mm_all.dir
+        ed, et, _ = _errors(mm, test)
+        e_d[out], e_th[out] = ed, et
+    return mm_all, e_d, e_th
+
+
+def _noise_m(mm, rows):
+    """Frame-to-frame distance noise (1σ, m) from the recorded centroid std."""
+    cx = np.array([r['cx'] for r in rows])
+    cy = np.array([r['cy'] for r in rows])
+    vx, vy = cx - mm.cx0, cy - mm.cy0
+    r = np.hypot(vx, vy)
+    # radial component of the centroid jitter
+    sx = np.array([r_['cx_std'] for r_ in rows])
+    sy = np.array([r_['cy_std'] for r_ in rows])
+    s_r = np.sqrt((sx * vx / r) ** 2 + (sy * vy / r) ** 2)
+    return s_r * _cm_per_px(mm, r) / 100
+
+
+def _cm_per_px(mm, r):
+    h = 0.5
+    return np.abs(mm.distance(r + h) - mm.distance(r - h)) / (2 * h) * 100
+
+
+def cmd_curve(args):
+    rows = load_csv(args.csv)
+    d_true = np.array([r['d_true_m'] for r in rows])
+    dists = np.unique(np.round(d_true, 3))
+
+    # (label, e_d, e_th) for every model to compare
+    series = []
+    for path in args.yaml or []:
+        with open(path) as f:
+            mm = MirrorModel.from_params(yaml.safe_load(f)['/**']['ros__parameters'])
+        e_d, e_th, _ = _errors(mm, rows)
+        series.append((os.path.basename(path), e_d, e_th))
+    try:
+        mm_cv, e_d, e_th = _cross_validated(rows)
+    except ValueError as e:
+        print(f'ERROR: {e}')
+        return 1
+    series.append((f'{os.path.basename(args.csv)} (validación cruzada)', e_d, e_th))
+    noise = _noise_m(mm_cv, rows)
+    r_px = mm_cv.polar_px(np.array([r['cx'] for r in rows]),
+                          np.array([r['cy'] for r in rows]))[0]
+    cmpx = _cm_per_px(mm_cv, r_px)
+
+    def per_dist(v, agg):
+        return np.array([agg(v[np.isclose(d_true, u, atol=5e-4)]) for u in dists])
+
+    def mean_abs(v):
+        v = v[np.isfinite(v)]
+        return np.abs(v).mean() if len(v) else np.nan
+
+    print(f'\nError por distancia — {args.csv} ({len(rows)} puntos)')
+    for k, (lbl, _, _) in enumerate(series, 1):
+        print(f'  [{k}] {lbl}')
+    print('  validación cruzada: cada distancia se predice con un modelo ajustado SIN ella '
+          '(nan = sin puntos suficientes para ajustar)')
+    head = '\n  d (cm)   n   cm/px  ruido(cm)'
+    for k in range(1, len(series) + 1):
+        head += f'  err_d[{k}](cm) err_ang[{k}](°)'
+    print(head)
+    for u in dists:
+        m = np.isclose(d_true, u, atol=5e-4)
+        line = (f'  {u * 100:6.0f} {m.sum():3d}  {cmpx[m].mean():6.1f}  '
+                f'{noise[m].mean() * 100:8.2f}')
+        for _, ed, et in series:
+            line += f'  {mean_abs(ed[m]) * 100:12.1f} {math.degrees(mean_abs(et[m])):13.1f}'
+        print(line)
+
+    try:
+        import matplotlib
+        matplotlib.use('Agg')
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print('  (matplotlib no disponible — sin gráfica)')
+        return 0
+
+    fig, ax = plt.subplots(1, 2, figsize=(13, 4.8))
+    x = dists * 100
+    for lbl, ed, et in series:
+        ax[0].plot(x, per_dist(ed, mean_abs) * 100, 'o-', label=lbl)
+        ax[1].plot(x, np.degrees(per_dist(et, mean_abs)), 'o-', label=lbl)
+    ax[0].plot(x, per_dist(cmpx, np.mean), 's--', color='0.5', label='1 píxel (cm/px)')
+    ax[0].plot(x, per_dist(noise, np.mean) * 100, 'd:', color='tab:purple',
+               label='ruido entre frames (1σ)')
+    for a in ax:
+        a.axvspan(70, 100, color='tab:green', alpha=0.08)
+        a.set_xlabel('distancia real (cm)')
+        a.grid(alpha=.3)
+        a.legend(fontsize=8)
+    ax[0].set_ylabel('error de distancia |e| (cm)')
+    ax[0].set_title('Distancia (verde = 70–100 cm, rango requerido)')
+    ax[1].set_ylabel('error de ángulo |e| (°)')
+    ax[1].set_title('Ángulo')
+    fig.tight_layout()
+    png = args.plot or os.path.splitext(args.csv)[0] + '_curve.png'
+    fig.savefig(png, dpi=150)
+    print(f'\n  gráfica guardada en {png}')
+    return 0
+
+
 # ── Recording ─────────────────────────────────────────────────────────────────
 
 def cmd_record(args):
@@ -472,12 +617,19 @@ def main():
     ev.add_argument('csv')
     ev.add_argument('--plot', help='PNG de salida (default: <csv>_eval.png)')
 
+    cur = sub.add_parser('curve', help='error vs distancia (validación cruzada + YAMLs)')
+    cur.add_argument('csv')
+    cur.add_argument('--yaml', action='append',
+                     help='YAML ya ajustado a comparar (se puede repetir)')
+    cur.add_argument('--plot', help='PNG de salida (default: <csv>_curve.png)')
+
     # ros2 run passes --ros-args …; strip them
     argv = sys.argv[1:]
     if '--ros-args' in argv:
         argv = argv[:argv.index('--ros-args')]
     args = ap.parse_args(argv)
-    return {'record': cmd_record, 'fit': cmd_fit, 'eval': cmd_eval}[args.mode](args)
+    return {'record': cmd_record, 'fit': cmd_fit, 'eval': cmd_eval,
+            'curve': cmd_curve}[args.mode](args)
 
 
 if __name__ == '__main__':
