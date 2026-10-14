@@ -4,6 +4,7 @@
     image_width:  640
     image_height: 480
     publish_hz:   3.0
+    sensor_fps:   5.0    # sensor/ISP frame rate cap (>= publish_hz); default libcamera ~30 fps
     warmup_s:     2.0
     vflip:        true
     jpeg_quality: 80

@@ -1,0 +1,11 @@
+# Generado por calibrate_range — modelo pixel → métrico de la cámara espejo
+/**:
+  ros__parameters:
+    center_x: 309.19
+    center_y: 234.69
+    angle_offset_deg: 5.372
+    angle_direction: -1
+    range_model: log_poly
+    range_coeffs: [6.0085686e-05, -0.013746573, 1.093048, -31.388216]
+    range_min_px: 70.24
+    range_max_px: 97.14
